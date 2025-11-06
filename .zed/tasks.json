@@ -1,0 +1,8 @@
+[
+    {
+        "label": "Pre commit",
+        "allow_concurrent_runs": false,
+        "use_new_terminal": false,
+        "command": "source ./scripts.sh && pre_commit"
+    }
+]

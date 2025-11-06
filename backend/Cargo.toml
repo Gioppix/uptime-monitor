@@ -1,0 +1,25 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = [
+  "runtime-tokio",
+  "tls-native-tls",
+  "postgres",
+  "macros",
+  "migrate",
+  "chrono",
+  "uuid",
+  "json",
+] }
+actix-web = "4"
+actix-cors = "0.7.1"
+reqwest = "0.12.24"
+env_logger = "0.11.8"
+anyhow = "1.0.100"
+
+[build-dependencies]
+dotenvy = "0.15.7"
