@@ -17,6 +17,9 @@ if [ "${IS_SEED}" = "true" ] && [[ ! "${SEEDS}" =~ "${BROADCAST_ADDR}" ]]; then
     export SEEDS="${BROADCAST_ADDR}"
 fi
 
+mkdir -p "${DATA_DIR}"
+chown -R scylla:scylla "${DATA_DIR}"
+
 exec /docker-entrypoint.py \
     --memory "${MEM}" \
     --smp "${SMP}" \
