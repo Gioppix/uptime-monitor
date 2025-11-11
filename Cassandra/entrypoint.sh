@@ -12,10 +12,6 @@ export BROADCAST_ADDR="${BROADCAST_ADDR:-${NODE_IP:-::1}}"
 export RPC_ADDR="${RPC_ADDR:-::}"
 export BROADCAST_RPC_ADDR="${BROADCAST_RPC_ADDR:-${NODE_IP:-::1}}"
 
-if [ "${IS_SEED}" = "true" ] && [[ ! "${SEEDS}" =~ "${BROADCAST_ADDR}" ]]; then
-    export SEEDS="${BROADCAST_ADDR}"
-fi
-
 # Configure Cassandra memory settings
 mkdir -p /etc/cassandra/jvm-server.options.d
 cat > /etc/cassandra/jvm-server.options.d/memory.options <<EOF
