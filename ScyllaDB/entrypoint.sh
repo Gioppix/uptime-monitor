@@ -7,6 +7,7 @@ export SMP="${SMP:-2}"
 export LISTEN_ADDR="${LISTEN_ADDR:-::}"
 export API_ADDR="${API_ADDR:-::}"
 export SEEDS="${SEEDS:-::1}"
+export DATA_DIR="${DATA_DIR:-/var/lib/scylla}"
 
 export BROADCAST_ADDR="${BROADCAST_ADDR:-${NODE_IP:-::1}}"
 export RPC_ADDR="${RPC_ADDR:-${LISTEN_ADDR}}"
@@ -28,4 +29,5 @@ exec /docker-entrypoint.py \
     --enable-ipv6-dns-lookup 1 \
     --listen-interface-prefer-ipv6 1 \
     --rpc-interface-prefer-ipv6 1 \
-    --overprovisioned 1
+    --overprovisioned 1 \
+    --workdir "${DATA_DIR}"
