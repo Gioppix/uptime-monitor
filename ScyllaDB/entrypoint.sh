@@ -18,7 +18,7 @@ if [ "${IS_SEED}" = "true" ] && [[ ! "${SEEDS}" =~ "${BROADCAST_ADDR}" ]]; then
 fi
 
 mkdir -p "${DATA_DIR}"
-chown -R scylla:scylla "${DATA_DIR}"
+chown -R scylla:scylla "${DATA_DIR}" 2>/dev/null || true
 
 exec /docker-entrypoint.py \
     --memory "${MEM}" \
