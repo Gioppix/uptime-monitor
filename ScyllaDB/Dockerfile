@@ -4,4 +4,6 @@ COPY ScyllaDB/entrypoint.sh /entrypoint.sh
 
 EXPOSE 9042 7000 10000
 
+USER root
+
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
