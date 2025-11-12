@@ -1,19 +1,23 @@
-mod dabatase;
+mod database;
 mod server;
 mod utils;
 
 use crate::{
-    dabatase::connect_db,
+    database::{connect_db, parse_database_urls},
     server::{AppStateInner, start_server},
 };
 use std::{net::TcpListener, sync::Arc};
 
 const PORT: u32 = env_u32!("PORT");
-const DATABASE_URL: &str = env_str!("DATABASE_URL");
+const DATABASE_NODE_URLS: &str = env_str!("DATABASE_NODE_URLS");
+const DATABASE_KEYSPACE: &str = env_str!("DATABASE_KEYSPACE");
+const DEV_MODE: bool = env_bool!("DEV_MODE");
 
 #[tokio::main]
 async fn main() {
-    let db = connect_db(DATABASE_URL)
+    let node_urls = parse_database_urls(DATABASE_NODE_URLS);
+
+    let db = connect_db(&node_urls, DATABASE_KEYSPACE)
         .await
         .expect("failed to connect to the database");
 
