@@ -7,23 +7,32 @@ use scylla::client::session::Session;
 
 static MIGRATIONS_DIR: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/migrations");
 
-pub fn get_migrations() -> Vec<(String, String)> {
+pub fn get_migrations() -> Vec<(&'static str, &'static str)> {
     MIGRATIONS_DIR
         .files()
         .map(|file| {
             (
-                file.path().to_str().expect("valid utf8").to_string(),
-                file.contents_utf8().expect("valid utf8").to_string(),
+                file.path().to_str().expect("valid utf8"),
+                file.contents_utf8().expect("valid utf8"),
             )
         })
         .collect()
+}
+
+/// Splits SQL content into individual statements by semicolon delimiter.
+/// Returns an iterator of non-empty, trimmed statement strings.
+fn split_to_statements(content: &str) -> impl Iterator<Item = &str> {
+    content
+        .split(';')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
 }
 
 // Test database setup utilities
 //
 // Returns a `Session` and the dedicated `keyspace`
 #[cfg(test)]
-pub async fn create_test_database() -> Result<(Session, String)> {
+pub async fn create_test_database(fixtures: Option<&str>) -> Result<(Session, String)> {
     let keyspace_name = format!("test_ks_{}", rng().random::<u32>());
 
     let database_urls = parse_database_urls(DATABASE_NODE_URLS);
@@ -46,11 +55,21 @@ pub async fn create_test_database() -> Result<(Session, String)> {
     // Run migrations
     let migration_files = get_migrations();
     for (file, content) in migration_files {
-        for statement in content.split(';').filter(|s| !s.trim().is_empty()) {
+        for statement in split_to_statements(content) {
             session
-                .query_unpaged(statement.trim(), &[])
+                .query_unpaged(statement, &[])
                 .await
                 .map_err(|e| anyhow::anyhow!("Migration failed for file {}: {}", file, e))?;
+        }
+    }
+
+    // Run fixtures if provided
+    if let Some(fixtures_content) = fixtures {
+        for statement in split_to_statements(fixtures_content) {
+            session
+                .query_unpaged(statement, &[])
+                .await
+                .map_err(|e| anyhow::anyhow!("Fixture execution failed: {}", e))?;
         }
     }
 
@@ -64,7 +83,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_create_database() -> Result<()> {
-        let (_, keyspace_name) = create_test_database().await?;
+        let (_, keyspace_name) = create_test_database(None).await?;
         println!("Created test keyspace: {}", keyspace_name);
 
         Ok(())

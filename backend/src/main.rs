@@ -1,4 +1,5 @@
 mod database;
+mod mutations;
 mod server;
 mod utils;
 

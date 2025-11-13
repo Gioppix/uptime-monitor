@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod testing;
+pub mod testing;
 
 use anyhow::Result;
 use scylla::client::PoolSize;
