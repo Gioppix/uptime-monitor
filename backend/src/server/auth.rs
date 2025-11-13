@@ -9,7 +9,7 @@ use std::future::Future;
 use std::pin::Pin;
 use uuid::Uuid;
 
-const SESSION_COOKIE_NAME: &str = "session_id";
+pub const SESSION_COOKIE_NAME: &str = "session_id";
 
 #[derive(Debug, Clone)]
 pub struct UserSession {

@@ -1,5 +1,6 @@
 mod auth;
 mod health;
+mod openapi;
 mod users;
 
 use crate::{database::Database, server::health::*};
@@ -17,15 +18,6 @@ pub struct AppStateInner {
     pub database: Database,
 }
 
-#[derive(OpenApi)]
-#[openapi(
-    tags(
-        (name = "health", description = "Health-related endpoints."),
-        (name = "users", description = "User-related endpoints."),
-    )
-)]
-pub struct ApiDoc;
-
 pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Result<()> {
     let data = Data::new(state);
 
@@ -39,7 +31,7 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
         App::new()
             .wrap(cors)
             .into_utoipa_app()
-            .openapi(ApiDoc::openapi())
+            .openapi(openapi::ApiDoc::openapi())
             .service(home)
             .service(health)
             .configure(users::configure_routes)

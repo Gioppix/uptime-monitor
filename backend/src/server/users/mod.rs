@@ -160,7 +160,12 @@ async fn login(body: Json<LoginRequest>, app_state: Data<AppState>) -> Result<Ht
     description = "Logs out the current user and invalidates their session",
     responses(
         (status = 200, description = "Logout successful"),
+        (status = 401, description = "Unauthorized - authentication required"),
         (status = 500, description = "Internal server error")
+    ),
+    security(
+        ("cookie_auth" = []),
+        ("bearer_auth" = [])
     ),
     tags = ["users"],
     operation_id = "logoutUser"
