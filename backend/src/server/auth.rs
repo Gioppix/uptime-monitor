@@ -1,4 +1,4 @@
-use crate::{DEV_MODE, mutations::sessions::get_valid_session_user_id, server::AppState};
+use crate::{mutations::sessions::get_valid_session_user_id, server::AppState};
 use actix_web::{
     FromRequest, HttpRequest,
     cookie::{Cookie, SameSite},
@@ -82,7 +82,7 @@ impl FromRequest for AuthenticatedUser {
 pub fn create_session_cookie(session_id: Uuid) -> Cookie<'static> {
     Cookie::build(SESSION_COOKIE_NAME, session_id.to_string())
         .http_only(true)
-        .secure(!DEV_MODE)
+        .secure(true)
         .same_site(SameSite::None)
         .path("/")
         .finish()
@@ -92,7 +92,7 @@ pub fn create_session_cookie(session_id: Uuid) -> Cookie<'static> {
 pub fn create_logout_cookie() -> Cookie<'static> {
     Cookie::build(SESSION_COOKIE_NAME, "")
         .http_only(true)
-        .secure(!DEV_MODE)
+        .secure(true)
         .same_site(SameSite::None)
         .path("/")
         .max_age(actix_web::cookie::time::Duration::seconds(0))

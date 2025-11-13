@@ -3,13 +3,15 @@ mod health;
 mod openapi;
 mod users;
 
-use crate::{database::Database, server::health::*};
+use crate::{database::Database, env_str, server::health::*};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web::Data};
 use std::{net::TcpListener, sync::Arc};
 use utoipa::OpenApi;
 use utoipa_actix_web::AppExt;
 use utoipa_swagger_ui::SwaggerUi;
+
+const FRONTEND_PUBLIC_URL: &str = env_str!("FRONTEND_PUBLIC_URL");
 
 pub type AppState = Arc<AppStateInner>;
 
@@ -23,7 +25,8 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
 
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allow_any_origin()
+            .supports_credentials()
+            .allowed_origin(FRONTEND_PUBLIC_URL)
             .allowed_methods(vec!["GET", "POST"])
             .allowed_headers(vec!["Content-Type", "Authorization"])
             .max_age(60 * 60 * 12);
