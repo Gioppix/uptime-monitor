@@ -10,6 +10,7 @@ pub struct UserSession {
     pub user_id: Uuid,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
+    logged_out: bool,
 }
 
 const SESSION_DURATION_DAYS: u32 = env_u32!("SESSION_DURATION_DAYS");
@@ -34,45 +35,61 @@ pub async fn create_session(
         user_id,
         created_at: now,
         expires_at,
+        logged_out: false,
     })
 }
 
-pub async fn get_session(db_session: &Session, session_id: Uuid) -> Result<Option<UserSession>> {
-    let query =
-        "SELECT session_id, user_id, created_at, expires_at FROM sessions WHERE session_id = ?";
+async fn get_session(db_session: &Session, session_id: Uuid) -> Result<Option<UserSession>> {
+    let query = "
+        SELECT session_id,
+               user_id,
+               created_at,
+               expires_at,
+               logged_out
+        FROM sessions
+        WHERE session_id = ?
+    ";
 
     let result = db_session
         .query_unpaged(query, (session_id,))
         .await?
         .into_rows_result()?;
 
-    let rows = result.rows::<(Uuid, Uuid, DateTime<Utc>, DateTime<Utc>)>()?;
+    let rows = result.rows::<(Uuid, Uuid, DateTime<Utc>, DateTime<Utc>, Option<bool>)>()?;
 
     if let Some(row) = rows.into_iter().next() {
-        let (session_id, user_id, created_at, expires_at) = row?;
+        let (session_id, user_id, created_at, expires_at, logger_out) = row?;
         Ok(Some(UserSession {
             session_id,
             user_id,
             created_at,
             expires_at,
+            logged_out: logger_out.unwrap_or(false),
         }))
     } else {
         Ok(None)
     }
 }
 
-pub async fn is_session_valid(db_session: &Session, session_id: Uuid) -> Result<bool> {
+pub async fn get_valid_session_user_id(
+    db_session: &Session,
+    session_id: Uuid,
+) -> Result<Option<Uuid>> {
     let maybe_user_session = get_session(db_session, session_id).await?;
 
     if let Some(user_session) = maybe_user_session {
-        Ok(user_session.expires_at > Utc::now())
+        if user_session.expires_at > Utc::now() && !user_session.logged_out {
+            Ok(Some(user_session.user_id))
+        } else {
+            Ok(None)
+        }
     } else {
-        Ok(false)
+        Ok(None)
     }
 }
 
-pub async fn delete_session(db_session: &Session, session_id: Uuid) -> Result<()> {
-    let query = "DELETE FROM sessions WHERE session_id = ?";
+pub async fn log_out_session(db_session: &Session, session_id: Uuid) -> Result<()> {
+    let query = "UPDATE sessions SET logged_out = true WHERE session_id = ?";
     db_session.query_unpaged(query, (session_id,)).await?;
     Ok(())
 }
@@ -124,15 +141,27 @@ mod tests {
 
         // Valid session from fixtures
         let valid_session_id = uuid!("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        assert!(is_session_valid(&db_session, valid_session_id).await?);
+        assert!(
+            get_valid_session_user_id(&db_session, valid_session_id)
+                .await?
+                .is_some()
+        );
 
         // Expired session from fixtures
         let expired_session_id = uuid!("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        assert!(!is_session_valid(&db_session, expired_session_id).await?);
+        assert!(
+            get_valid_session_user_id(&db_session, expired_session_id)
+                .await?
+                .is_none()
+        );
 
         // Non-existent session
         let nonexistent_id = uuid!("99999999-9999-9999-9999-999999999999");
-        assert!(!is_session_valid(&db_session, nonexistent_id).await?);
+        assert!(
+            get_valid_session_user_id(&db_session, nonexistent_id)
+                .await?
+                .is_none()
+        );
 
         Ok(())
     }
@@ -148,11 +177,17 @@ mod tests {
         create_session(&db_session, user_id, session_id).await?;
         assert!(get_session(&db_session, session_id).await?.is_some());
 
-        // Delete session
-        delete_session(&db_session, session_id).await?;
+        get_valid_session_user_id(&db_session, session_id)
+            .await?
+            .unwrap();
 
-        // Verify session is deleted
-        assert!(get_session(&db_session, session_id).await?.is_none());
+        // Delete session
+        log_out_session(&db_session, session_id).await?;
+
+        assert_eq!(
+            get_valid_session_user_id(&db_session, session_id).await?,
+            None
+        );
 
         Ok(())
     }

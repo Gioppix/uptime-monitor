@@ -1,3 +1,4 @@
+mod auth;
 mod health;
 mod users;
 
@@ -19,7 +20,8 @@ pub struct AppStateInner {
 #[derive(OpenApi)]
 #[openapi(
     tags(
-        (name = "health", description = "Health-related endpoints.")
+        (name = "health", description = "Health-related endpoints."),
+        (name = "users", description = "User-related endpoints."),
     )
 )]
 pub struct ApiDoc;
@@ -54,14 +56,15 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
 }
 
 #[cfg(test)]
-pub async fn start_server_test() -> u16 {
+pub async fn start_server_test(fixtures: Option<&str>) -> (u16, AppState) {
     use crate::database::testing::create_test_database;
 
-    let (database, _) = create_test_database(None)
+    let (database, _) = create_test_database(fixtures)
         .await
         .expect("error creating database");
 
     let state = AppStateInner { database };
+    let app_state: AppState = Arc::new(state);
 
     let listener = TcpListener::bind("0.0.0.0:0").expect("failed to bind to random port");
     let port = listener
@@ -69,11 +72,12 @@ pub async fn start_server_test() -> u16 {
         .expect("failed to get local addr")
         .port();
 
-    tokio::spawn(async {
-        start_server(Arc::new(state), listener).await.unwrap();
+    let app_state_clone = app_state.clone();
+    tokio::spawn(async move {
+        start_server(app_state.clone(), listener).await.unwrap();
     });
 
-    port
+    (port, app_state_clone)
 }
 
 #[cfg(test)]
@@ -82,7 +86,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_endpoint() {
-        let port = start_server_test().await;
+        let (port, _) = start_server_test(None).await;
 
         let client = reqwest::Client::new();
         let response = client

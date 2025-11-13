@@ -35,6 +35,97 @@
         }
       }
     },
+    "/users/login": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Login user",
+        "description": "Authenticates a user and establishes a session",
+        "operationId": "loginUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicUser"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/users/logout": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Logout user",
+        "description": "Logs out the current user and invalidates their session",
+        "operationId": "logoutUser",
+        "responses": {
+          "200": {
+            "description": "Logout successful"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/users/new": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Create a new user",
+        "description": "Creates a new user account and establishes a session",
+        "operationId": "createUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicUser"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/users/{user_id}": {
       "get": {
         "tags": [
@@ -77,6 +168,36 @@
   },
   "components": {
     "schemas": {
+      "CreateUserRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
       "PublicUser": {
         "type": "object",
         "required": [
@@ -99,6 +220,10 @@
     {
       "name": "health",
       "description": "Health-related endpoints."
+    },
+    {
+      "name": "users",
+      "description": "User-related endpoints."
     }
   ]
 }

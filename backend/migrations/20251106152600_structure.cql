@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS users_by_id
 (
-    user_id   uuid,
+    user_id              uuid,
     user_hashed_password text,
-    username text,
+    username             text,
 
     PRIMARY KEY (user_id)
 );
@@ -10,17 +10,18 @@ CREATE TABLE IF NOT EXISTS users_by_id
 CREATE TABLE IF NOT EXISTS sessions
 (
     session_id uuid,
-    user_id uuid,
+    user_id    uuid,
     created_at timestamp,
     expires_at timestamp,
+    logged_out boolean,
 
     PRIMARY KEY (session_id)
 );
 
 CREATE TABLE IF NOT EXISTS users_by_username
 (
-    username text,
-    user_id uuid,
+    username             text,
+    user_id              uuid,
     user_hashed_password text,
 
     PRIMARY KEY (username)

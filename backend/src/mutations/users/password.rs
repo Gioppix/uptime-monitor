@@ -71,4 +71,13 @@ mod tests {
         assert!(verify_password(password, &hash1).unwrap());
         assert!(verify_password(password, &hash2).unwrap());
     }
+
+    #[test]
+    #[ignore]
+    fn test_print_hash() {
+        let password = "password123";
+        let hash = hash_password(password).unwrap();
+        println!("Password: {}", password);
+        println!("Hash:\n{}", hash);
+    }
 }

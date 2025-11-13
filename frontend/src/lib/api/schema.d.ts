@@ -36,6 +36,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login user
+         * @description Authenticates a user and establishes a session
+         */
+        post: operations["loginUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout user
+         * @description Logs out the current user and invalidates their session
+         */
+        post: operations["logoutUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/new": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a new user
+         * @description Creates a new user account and establishes a session
+         */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{user_id}": {
         parameters: {
             query?: never;
@@ -60,6 +120,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CreateUserRequest: {
+            password: string;
+            username: string;
+        };
+        LoginRequest: {
+            password: string;
+            username: string;
+        };
         PublicUser: {
             /** Format: uuid */
             user_id: string;
@@ -103,6 +171,100 @@ export interface operations {
         responses: {
             /** @description Health check */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    loginUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Login successful */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicUser"];
+                };
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    logoutUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logout successful */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description User created successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicUser"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
