@@ -3,6 +3,10 @@ name = "backend"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "gen-openapi"
+path = "./src/gen_openapi.rs"
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 actix-web = "4"

@@ -19,7 +19,7 @@ pub struct AppStateInner {}
         (name = "health", description = "Health-related endpoints.")
     )
 )]
-struct ApiDoc;
+pub struct ApiDoc;
 
 pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Result<()> {
     let data = Data::new(state);
@@ -69,12 +69,9 @@ pub fn start_server_test() -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::init_logging;
 
     #[tokio::test]
     async fn test_health_endpoint() {
-        init_logging();
-
         let port = start_server_test();
 
         let client = reqwest::Client::new();

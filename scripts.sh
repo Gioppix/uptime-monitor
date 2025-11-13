@@ -16,8 +16,12 @@ run_automatic_tests() {
   (cd backend && cargo test --workspace)
 }
 
+generate_openapi_docs() {
+    (cd backend && cargo run --bin gen-openapi)
+}
+
 pre_commit() {
-  format_toml && update_pub_env && run_automatic_tests
+  generate_openapi_docs && format_toml && update_pub_env && run_automatic_tests
 }
 
 
