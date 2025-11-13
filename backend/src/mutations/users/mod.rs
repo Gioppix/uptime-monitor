@@ -1,15 +1,22 @@
 mod password;
 
+use crate::mutations::users::password::hash_password;
 use anyhow::Result;
 use scylla::{client::session::Session, statement::batch::Batch};
+use serde::Serialize;
+use utoipa::ToSchema;
 use uuid::Uuid;
-
-use crate::mutations::users::password::hash_password;
 
 pub struct User {
     pub user_id: Uuid,
     pub username: String,
     pub user_hashed_password: String,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct PublicUser {
+    pub user_id: Uuid,
+    pub username: String,
 }
 
 pub async fn get_user_by_id(session: &Session, user_id: Uuid) -> Result<Option<User>> {

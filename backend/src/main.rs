@@ -18,11 +18,11 @@ const DEV_MODE: bool = env_bool!("DEV_MODE");
 async fn main() {
     let node_urls = parse_database_urls(DATABASE_NODE_URLS);
 
-    let db = connect_db(&node_urls, DATABASE_KEYSPACE)
+    let database = connect_db(&node_urls, DATABASE_KEYSPACE)
         .await
         .expect("failed to connect to the database");
 
-    let state = Arc::new(AppStateInner {});
+    let state = Arc::new(AppStateInner { database });
     let listener = TcpListener::bind(format!("0.0.0.0:{PORT}")).expect("Failed to bind PORT");
 
     println!(

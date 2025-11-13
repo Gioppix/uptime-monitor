@@ -8,6 +8,8 @@ use scylla::{client::execution_profile::ExecutionProfile, statement::Consistency
 use std::num::NonZeroUsize;
 use std::time::Duration;
 
+pub type Database = Session;
+
 pub fn parse_database_urls(urls: &str) -> Vec<&str> {
     urls.split(',')
         .map(|s| s.trim())
@@ -18,7 +20,7 @@ pub fn parse_database_urls(urls: &str) -> Vec<&str> {
 async fn connect_db_optional_ks(
     database_nodes_urls: &[&str],
     keyspace_name: Option<&str>,
-) -> Result<Session> {
+) -> Result<Database> {
     let profile = ExecutionProfile::builder()
         .consistency(Consistency::One)
         .request_timeout(Some(Duration::from_secs(5)))

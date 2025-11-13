@@ -2,7 +2,9 @@
 	import { api } from '$lib/api/client';
 
 	async function handle() {
-		const result = await api.GET('/health', {});
+		const result = await api.GET('/users/{user_id}', {
+			params: { path: { user_id: '22222222-2222-2222-2222-222222222222' } }
+		});
 		console.log(result.data);
 	}
 </script>

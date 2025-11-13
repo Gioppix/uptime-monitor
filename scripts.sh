@@ -24,11 +24,12 @@ generate_openapi_docs() {
         cargo run &
         PID=$!
         cd ..
-        sleep 1
+        sleep 5
         curl -o backend/OpenAPI.json localhost:8801/api/openapi.json
         kill $PID
         jq '.' backend/OpenAPI.json > backend/OpenAPI.json.tmp && mv backend/OpenAPI.json.tmp backend/OpenAPI.json
     )
+    (cd frontend && npm run generate:api)
 }
 
 
@@ -49,8 +50,8 @@ start_cassandra() {
     -e CASSANDRA_RPC_ADDRESS="0.0.0.0" \
     -e CASSANDRA_BROADCAST_RPC_ADDRESS="localhost" \
     -e CASSANDRA_SEEDS="localhost" \
-    -e MAX_HEAP_SIZE="400M" \
-    -e HEAP_NEWSIZE="100M" \
+    -e MAX_HEAP_SIZE="800M" \
+    -e HEAP_NEWSIZE="200M" \
     cassandra:5
 }
 

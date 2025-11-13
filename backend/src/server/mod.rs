@@ -1,6 +1,7 @@
 mod health;
+mod users;
 
-use crate::server::health::*;
+use crate::{database::Database, server::health::*};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web::Data};
 use std::{net::TcpListener, sync::Arc};
@@ -11,7 +12,9 @@ use utoipa_swagger_ui::SwaggerUi;
 pub type AppState = Arc<AppStateInner>;
 
 #[derive(Debug)]
-pub struct AppStateInner {}
+pub struct AppStateInner {
+    pub database: Database,
+}
 
 #[derive(OpenApi)]
 #[openapi(
@@ -37,6 +40,7 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
             .openapi(ApiDoc::openapi())
             .service(home)
             .service(health)
+            .configure(users::configure_routes)
             .app_data(data.clone())
             .openapi_service(|api| {
                 SwaggerUi::new("/swagger-ui/{_:.*}").url("/api/openapi.json", api)
@@ -50,8 +54,14 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
 }
 
 #[cfg(test)]
-pub fn start_server_test() -> u16 {
-    let state = AppStateInner {};
+pub async fn start_server_test() -> u16 {
+    use crate::database::testing::create_test_database;
+
+    let (database, _) = create_test_database(None)
+        .await
+        .expect("error creating database");
+
+    let state = AppStateInner { database };
 
     let listener = TcpListener::bind("0.0.0.0:0").expect("failed to bind to random port");
     let port = listener
@@ -72,7 +82,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_endpoint() {
-        let port = start_server_test();
+        let port = start_server_test().await;
 
         let client = reqwest::Client::new();
         let response = client
