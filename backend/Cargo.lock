@@ -367,6 +367,7 @@ dependencies = [
  "rand",
  "reqwest",
  "scylla",
+ "serde_json",
  "tokio",
  "utoipa",
  "utoipa-actix-web",

@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, get};
+use serde_json::json;
 
 #[utoipa::path(
     responses(
@@ -8,7 +9,9 @@ use actix_web::{HttpResponse, get};
 )]
 #[get("/health")]
 pub async fn health() -> HttpResponse {
-    HttpResponse::Ok().body("ok")
+    HttpResponse::Ok().json(json!({
+        "status": "ok"
+    }))
 }
 
 #[utoipa::path(

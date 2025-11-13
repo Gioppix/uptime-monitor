@@ -9,6 +9,7 @@ format_toml() {
 update_pub_env() {
   echo "Updating public env file..."
   ./update_env.py backend/
+  ./update_env.py frontend/
 }
 
 run_automatic_tests() {
@@ -17,8 +18,19 @@ run_automatic_tests() {
 }
 
 generate_openapi_docs() {
-    (cd backend && cargo run --bin gen-openapi)
+    echo "Generating OpenAPI documentation..."
+    (
+        cd backend
+        cargo run &
+        PID=$!
+        cd ..
+        sleep 1
+        curl -o backend/OpenAPI.json localhost:8801/api/openapi.json
+        kill $PID
+        jq '.' backend/OpenAPI.json > backend/OpenAPI.json.tmp && mv backend/OpenAPI.json.tmp backend/OpenAPI.json
+    )
 }
+
 
 pre_commit() {
   generate_openapi_docs && format_toml && update_pub_env && run_automatic_tests

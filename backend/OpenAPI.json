@@ -8,7 +8,34 @@
     },
     "version": "0.1.0"
   },
-  "paths": {},
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "home",
+        "responses": {
+          "200": {
+            "description": "Home endpoint"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Health check"
+          }
+        }
+      }
+    }
+  },
   "components": {},
   "tags": [
     {
