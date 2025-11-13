@@ -25,6 +25,11 @@ async fn main() {
     let state = Arc::new(AppStateInner {});
     let listener = TcpListener::bind(format!("0.0.0.0:{PORT}")).expect("Failed to bind PORT");
 
+    println!(
+        "Listening on {}",
+        listener.local_addr().expect("Failed to get local address")
+    );
+
     start_server(state, listener)
         .await
         .expect("error while running server");
