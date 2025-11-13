@@ -21,7 +21,7 @@ async fn test_cascading_user_flows() {
     // Test 1: Get existing user
     let response = client
         .get(format!(
-            "{}/users/33333333-3333-3333-3333-333333333333",
+            "{}/users/info/33333333-3333-3333-3333-333333333333",
             base_url
         ))
         .send()
@@ -34,7 +34,7 @@ async fn test_cascading_user_flows() {
     // Test 2: Get non-existent user (404)
     let response = client
         .get(format!(
-            "{}/users/99999999-9999-9999-9999-999999999999",
+            "{}/users/info/99999999-9999-9999-9999-999999999999",
             base_url
         ))
         .send()
@@ -131,7 +131,7 @@ async fn test_cascading_user_flows() {
 
     // Test 10: Verify authenticated access to get_user still works
     let response = client
-        .get(format!("{}/users/{}", base_url, new_user_id))
+        .get(format!("{}/users/info/{}", base_url, new_user_id))
         .send()
         .await
         .unwrap();

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { api } from '$lib/api/client';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
 	let username = $state('');
@@ -35,7 +35,8 @@
 			if (result.error) {
 				error = 'Failed to create account. Username may already exist.';
 			} else {
-				goto(resolve('/'));
+				await invalidateAll();
+				await goto(resolve('/'));
 			}
 		} catch (_) {
 			error = 'An error occurred. Please try again.';

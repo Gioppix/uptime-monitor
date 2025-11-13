@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { api } from '$lib/api/client';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 
@@ -15,7 +15,8 @@
 				error = 'Failed to logout';
 				loading = false;
 			} else {
-				goto(resolve('/login'));
+				await invalidateAll();
+				await goto(resolve('/login'));
 			}
 		} catch (_) {
 			error = 'An error occurred during logout';

@@ -23,6 +23,7 @@ pub fn configure_routes(config: &mut ServiceConfig) {
     config.service(
         scope::scope("/users")
             .service(get_user)
+            .service(get_current_user)
             .service(create_new_user)
             .service(login)
             .service(logout),
@@ -52,7 +53,7 @@ pub struct LoginRequest {
     tags = ["users"],
     operation_id = "getUser"
 )]
-#[get("/{user_id}")]
+#[get("/info/{user_id}")]
 async fn get_user(
     user_id: Path<Uuid>,
     app_state: Data<AppState>,
@@ -69,6 +70,50 @@ async fn get_user(
         user_id: user.user_id,
         username: user.username,
     }))
+}
+
+#[utoipa::path(
+    summary = "Get current authenticated user",
+    description = "Retrieves the currently authenticated user's public information. Returns null if not authenticated.",
+    responses(
+        (status = 200, description = "Success - returns user info or null if not authenticated", body = Option<PublicUser>),
+        (status = 500, description = "Internal server error")
+    ),
+    security(
+        ("cookie_auth" = []),
+        ("bearer_auth" = [])
+    ),
+    tags = ["users"],
+    operation_id = "getCurrentUser"
+)]
+#[get("/me")]
+async fn get_current_user(
+    auth: Option<AuthenticatedUser>,
+    app_state: Data<AppState>,
+) -> Result<Json<Option<PublicUser>>, Error> {
+    match auth {
+        Some(AuthenticatedUser::User(UserSession { user_id, .. })) => {
+            let user = get_user_by_id(&app_state.database, user_id)
+                .await
+                .map_err(|e| {
+                    // TODO: log error
+                    ErrorInternalServerError(e)
+                })?;
+
+            Ok(Json(user.map(|u| PublicUser {
+                user_id: u.user_id,
+                username: u.username,
+            })))
+        }
+        Some(AuthenticatedUser::Api(_)) => {
+            // API keys don't have associated user info, so return None
+            Ok(Json(None))
+        }
+        None => {
+            // Not authenticated
+            Ok(Json(None))
+        }
+    }
 }
 
 #[utoipa::path(
