@@ -3,6 +3,7 @@
     "KEYSPACE",
     "keyspaces",
     "actix",
-    "utoipa"
+    "utoipa",
+    "addrs"
   ]
 }

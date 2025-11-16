@@ -21,11 +21,16 @@ generate_openapi_docs() {
     echo "Generating OpenAPI documentation..."
     (
         cd backend
-        cargo run &
+        # Find an available port
+        PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('', 0)); print(s.getsockname()[1]); s.close()")
+        echo "Using port: $PORT"
+        PORT=$PORT cargo build
+        echo Running
+        PORT=$PORT cargo run &
         PID=$!
         cd ..
-        sleep 5
-        curl -o backend/OpenAPI.json localhost:8801/api/openapi.json
+        sleep 1
+        curl -o backend/OpenAPI.json localhost:$PORT/api/openapi.json
         kill $PID
         jq '.' backend/OpenAPI.json > backend/OpenAPI.json.tmp && mv backend/OpenAPI.json.tmp backend/OpenAPI.json
     )
@@ -40,16 +45,15 @@ pre_commit() {
 
 start_cassandra() {
   echo "Starting Cassandra Docker container..."
+  # docker network create cassandra-net
   docker run -d \
-    --name cassandra \
+    --name cassandra1 \
+    --network cassandra-net \
     -p 9042:9042 \
     -v cassandra1:/var/lib/cassandra \
     -e CASSANDRA_CLUSTER_NAME="CassandraCluster" \
-    -e CASSANDRA_LISTEN_ADDRESS="localhost" \
-    -e CASSANDRA_BROADCAST_ADDRESS="localhost" \
-    -e CASSANDRA_RPC_ADDRESS="0.0.0.0" \
-    -e CASSANDRA_BROADCAST_RPC_ADDRESS="localhost" \
-    -e CASSANDRA_SEEDS="localhost" \
+    -e CASSANDRA_BROADCAST_ADDRESS="cassandra1" \
+    -e CASSANDRA_SEEDS="cassandra1" \
     -e MAX_HEAP_SIZE="800M" \
     -e HEAP_NEWSIZE="200M" \
     cassandra:5

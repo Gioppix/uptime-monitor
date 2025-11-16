@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS services
 CREATE TABLE IF NOT EXISTS service_checks
 (
     check_id                uuid,
+    region                  text,
+    bucket_version          smallint,
+    bucket                  int,
+
     service_id              uuid,
     check_name              text,
     url                     text,
@@ -60,8 +64,10 @@ CREATE TABLE IF NOT EXISTS service_checks
     is_enabled              boolean,
     created_at              timestamp,
 
-    PRIMARY KEY (service_id, check_id)
+    PRIMARY KEY ((region, bucket), check_id)
 );
+
+CREATE INDEX IF NOT EXISTS service_checks_by_service ON service_checks (service_id) USING 'SAI';
 
 CREATE TABLE IF NOT EXISTS access_by_user
 (

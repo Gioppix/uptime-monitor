@@ -1,3 +1,4 @@
+mod collab;
 mod database;
 mod mutations;
 mod server;
