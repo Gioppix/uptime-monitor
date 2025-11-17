@@ -1,31 +1,13 @@
+use crate::collab::heartbeat::Heartbeat;
+use anyhow::Result;
+use anyhow::bail;
 use rand::rng;
 use rand_distr::num_traits::Pow;
 use rand_distr::{Beta, Distribution, weighted::WeightedIndex};
-use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Heartbeat {
-    pub node_id: Uuid,
-    pub position: NodePosition,
-}
-
-impl Ord for Heartbeat {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.position
-            .cmp(&other.position)
-            .then_with(|| self.node_id.cmp(&other.node_id))
-    }
-}
-
-impl PartialOrd for Heartbeat {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-pub type NodePosition = u128;
+pub type NodePosition = u32;
 
 /// Represents a range on the ring [start, end).
 ///
@@ -46,17 +28,26 @@ pub struct RingRange {
 // the middle of the gap.
 // Randomness is needed so that if nodes join together they don't overlap too much.
 //
-pub fn choose_new_node_position(state: &BTreeSet<Heartbeat>) -> NodePosition {
+pub fn choose_new_node_position(
+    state: &BTreeSet<Heartbeat>,
+    ring_size: NodePosition,
+) -> Result<NodePosition> {
     /// A higher number means bigger gaps are preferred more
     const GAP_EXPONENT: f64 = 2.0;
     /// A higher number means the center of the chosen gap is preferred more
     const BETA_FUNCTION_AB: f64 = 3.0;
 
     if state.is_empty() {
-        return NodePosition::MAX / 2;
+        return Ok(0);
     }
 
     let mut rng = rng();
+
+    for node in state {
+        if node.position >= ring_size {
+            bail!("invalid node position");
+        }
+    }
 
     // (gaps(size, position), weights)
     let (gaps, weights): (Vec<_>, Vec<_>) = state
@@ -66,7 +57,7 @@ pub fn choose_new_node_position(state: &BTreeSet<Heartbeat>) -> NodePosition {
             let gap = if next.position > current.position {
                 next.position - current.position
             } else {
-                NodePosition::MAX - current.position + next.position
+                ring_size - current.position + next.position
             };
             let gap = gap as f64;
 
@@ -75,27 +66,29 @@ pub fn choose_new_node_position(state: &BTreeSet<Heartbeat>) -> NodePosition {
         .unzip();
 
     // Guarantees:
-    // - Each value is non-negative (u128)
-    // - The sum is never 0
-    // - The sum is at most NodePosition::MAX ^ p but converted to f64
+    // - Each value is non-negative (it's a position)
+    // - The sum is never 0 (it's the sum of powers of numbers whose sum is RING_SIZE)
+    // - The sum is at most ring_size ^ p but converted to f64
     // - The list is not empty
-    let dist = WeightedIndex::new(&weights).expect("Failed to create weighted distribution");
+    let dist = WeightedIndex::new(&weights)?;
 
     // Select a gap randomly based on weights
     let selected_idx = dist.sample(&mut rng);
     let (gap_size, start_pos) = gaps[selected_idx];
 
-    let beta =
-        Beta::new(BETA_FUNCTION_AB, BETA_FUNCTION_AB).expect("Failed to create beta distribution");
+    let beta = Beta::new(BETA_FUNCTION_AB, BETA_FUNCTION_AB)?;
     let offset_ratio = beta.sample(&mut rng);
 
     let offset = (gap_size * offset_ratio) as NodePosition;
-    start_pos.wrapping_add(offset)
+
+    let final_position = (start_pos + offset) % ring_size;
+
+    Ok(final_position)
 }
 
 pub fn calculate_node_range(
     node_id: Uuid,
-    replication_factor: usize,
+    replication_factor: u32,
     current_state: &BTreeSet<Heartbeat>,
 ) -> Option<RingRange> {
     let nodes: Vec<&Heartbeat> = current_state.iter().collect();
@@ -114,7 +107,7 @@ pub fn calculate_node_range(
     }
 
     // Find the k-th successor (wrapping around)
-    let end_idx = (our_idx + replication_factor) % nodes.len();
+    let end_idx = (our_idx + replication_factor as usize) % nodes.len();
     let end_position = nodes[end_idx].position;
 
     Some(RingRange {
@@ -245,6 +238,8 @@ mod tests {
     #[test]
     #[ignore]
     fn test_display_position_two_nodes() {
+        const TEST_RING_SIZE: NodePosition = 100;
+
         let mut state = BTreeSet::new();
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000001"),
@@ -252,19 +247,54 @@ mod tests {
         });
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000002"),
-            position: NodePosition::MAX / 4,
+            position: TEST_RING_SIZE / 4,
         });
 
         for (i, heartbeat) in state.iter().enumerate() {
-            let percentage = (heartbeat.position as f64 / NodePosition::MAX as f64) * 100.0;
-            println!("Node {} position: {}%", i + 1, percentage.floor());
+            let percentage = (heartbeat.position as f64 / TEST_RING_SIZE as f64) * 100.0;
+            println!(
+                "Node {} position: {} ({}%)",
+                i + 1,
+                heartbeat.position,
+                percentage.floor()
+            );
         }
         println!("\n");
 
-        for _ in 0..10 {
-            let position = choose_new_node_position(&state);
-            let percentage = (position as f64 / NodePosition::MAX as f64) * 100.0;
-            println!("Chosen position: {}%", percentage.floor());
+        let mut results: Vec<_> = (0..10)
+            .map(|_| choose_new_node_position(&state, TEST_RING_SIZE).unwrap())
+            .collect();
+
+        results.sort();
+
+        for position in results {
+            let percentage = (position as f64 / TEST_RING_SIZE as f64) * 100.0;
+            println!("Chosen position: {} ({}%)", position, percentage.floor());
+        }
+    }
+
+    #[test]
+    fn test_two_nodes_1000_iterations() {
+        const TEST_RING_SIZE: NodePosition = 10;
+
+        let mut state = BTreeSet::new();
+        state.insert(Heartbeat {
+            node_id: uuid!("00000000-0000-0000-0000-000000000001"),
+            position: 3,
+        });
+        state.insert(Heartbeat {
+            node_id: uuid!("00000000-0000-0000-0000-000000000002"),
+            position: 6,
+        });
+
+        for _ in 0..1000 {
+            let position = choose_new_node_position(&state, TEST_RING_SIZE).unwrap();
+            assert!(
+                position < TEST_RING_SIZE,
+                "Position {} should be less than {}",
+                position,
+                TEST_RING_SIZE
+            );
         }
     }
 }

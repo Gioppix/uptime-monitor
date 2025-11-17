@@ -17,7 +17,7 @@ pub type AppState = Arc<AppStateInner>;
 
 #[derive(Debug)]
 pub struct AppStateInner {
-    pub database: Database,
+    pub database: Arc<Database>,
 }
 
 pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Result<()> {
@@ -57,6 +57,7 @@ pub async fn start_server_test(fixtures: Option<&str>) -> (u16, AppState) {
     let (database, _) = create_test_database(fixtures)
         .await
         .expect("error creating database");
+    let database = Arc::new(database);
 
     let state = AppStateInner { database };
     let app_state: AppState = Arc::new(state);

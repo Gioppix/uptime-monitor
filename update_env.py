@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import re
-import argparse
 
 
 def randomize_env_file(base_path):
@@ -19,10 +19,17 @@ def randomize_env_file(base_path):
 
     env_vars = []
     current_default = None
+    should_ignore = False
 
     with open(public_file_name, "w") as target:
         for i, line in enumerate(lines):
             line = line.strip()
+
+            # Check if this line should be ignored
+            if line.startswith("# IGNORE"):
+                should_ignore = True
+                # Don't write IGNORE comment to .env.pub
+                continue
 
             # Check if this line specifies a default value
             if line.startswith("# DEFAULT:"):
@@ -43,6 +50,13 @@ def randomize_env_file(base_path):
                 key, original_value = line.split("=", 1)
                 key = key.strip()
                 original_value = original_value.strip()
+
+                # Skip this variable if it should be ignored
+                if should_ignore:
+                    should_ignore = False  # Reset for next variable
+                    current_default = None
+                    continue
+
                 env_vars.append(key)
 
                 # Use default value if one was specified in the preceding comment
@@ -75,6 +89,7 @@ def randomize_env_file(base_path):
                 # If line doesn't contain '=', write it as is
                 target.write(line + "\n")
                 current_default = None  # Reset default if no key-value pair follows
+                should_ignore = False  # Reset ignore flag
 
     # Update Dockerfile with ARG statements
     dockerfile_found = update_dockerfile(env_vars, base_path)

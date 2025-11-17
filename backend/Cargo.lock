@@ -366,6 +366,7 @@ dependencies = [
  "futures",
  "get_if_addrs",
  "include_dir",
+ "log",
  "rand",
  "rand_distr",
  "reqwest",

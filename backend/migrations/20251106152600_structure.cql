@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS service_checks
     is_enabled              boolean,
     created_at              timestamp,
 
-    PRIMARY KEY ((region, bucket), check_id)
+    PRIMARY KEY ((region, bucket_version, bucket), check_id)
 );
 
 CREATE INDEX IF NOT EXISTS service_checks_by_service ON service_checks (service_id) USING 'SAI';
@@ -106,3 +106,25 @@ CREATE TABLE IF NOT EXISTS check_results
     PRIMARY KEY ((service_check_id, day), check_started_at, result_id)
 ) WITH CLUSTERING ORDER BY (check_started_at DESC)
    AND DEFAULT_TIME_TO_LIVE = 7776000;
+
+
+CREATE TABLE IF NOT EXISTS workers_heartbeats
+(
+    region              text,
+    time_bucket_minutes bigint,
+    timestamp           timestamp,
+    position            int,
+    process_id          uuid,
+
+    PRIMARY KEY ((region, time_bucket_minutes), timestamp)
+) WITH CLUSTERING ORDER BY (timestamp DESC)
+   AND DEFAULT_TIME_TO_LIVE = 2592000;
+
+CREATE TABLE IF NOT EXISTS workers_metadata
+(
+    process_id uuid,
+    replica_id text,
+    git_sha    text,
+
+    PRIMARY KEY (process_id)
+);

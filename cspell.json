@@ -4,6 +4,10 @@
     "keyspaces",
     "actix",
     "utoipa",
-    "addrs"
+    "addrs",
+    "chrono"
+  ],
+  "userWords": [
+    " "
   ]
 }
