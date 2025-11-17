@@ -1,8 +1,8 @@
-use std::time::Duration;
-
-use tokio::{sync::watch::Receiver, time};
+mod fetch;
 
 use crate::collab::RingRange;
+use std::time::Duration;
+use tokio::{sync::watch::Receiver, time};
 
 pub struct Worker {
     range_updates: Receiver<Option<RingRange>>,

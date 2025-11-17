@@ -1,12 +1,15 @@
 #[cfg(test)]
 pub mod testing;
 
+use crate::env_u32;
 use anyhow::Result;
 use scylla::client::PoolSize;
 use scylla::client::{session::Session, session_builder::SessionBuilder};
 use scylla::{client::execution_profile::ExecutionProfile, statement::Consistency};
 use std::num::NonZeroUsize;
 use std::time::Duration;
+
+pub const DATABASE_CONCURRENT_REQUESTS: u32 = env_u32!("DATABASE_CONCURRENT_REQUESTS");
 
 pub type Database = Session;
 

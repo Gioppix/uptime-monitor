@@ -15,12 +15,12 @@ mod network;
 pub mod range_manager;
 
 use crate::collab::{
-    assignment::{NodePosition, choose_new_node_position},
+    assignment::choose_new_node_position,
     heartbeat::{HeartbeatManager, HeartbeatManagerTrait},
 };
 use anyhow::Result;
 
-pub use assignment::RingRange;
+pub use assignment::{NodePosition, RingRange};
 
 pub async fn decide_position(
     heartbeat: &HeartbeatManager,

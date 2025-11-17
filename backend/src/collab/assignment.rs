@@ -116,10 +116,69 @@ pub fn calculate_node_range(
     })
 }
 
+impl RingRange {
+    pub fn into_iter(&self, ring_size: NodePosition) -> RingRangeIterator {
+        RingRangeIterator {
+            range: *self,
+            ring_size,
+            current: self.start,
+            done: false,
+        }
+    }
+}
+
+pub struct RingRangeIterator {
+    range: RingRange,
+    ring_size: NodePosition,
+    current: NodePosition,
+    done: bool,
+}
+
+impl Iterator for RingRangeIterator {
+    type Item = NodePosition;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        let result = self.current;
+
+        self.current = (self.current + 1) % self.ring_size;
+
+        if self.current == self.range.end {
+            self.done = true;
+        }
+
+        Some(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use uuid::uuid;
+
+    #[test]
+    fn test_into_iter() {
+        const RING_SIZE: NodePosition = 10;
+
+        let range = RingRange { start: 0, end: 1 };
+        let result: Vec<NodePosition> = range.into_iter(RING_SIZE).collect();
+        assert_eq!(result, vec![0]);
+
+        let range = RingRange { start: 0, end: 5 };
+        let result: Vec<NodePosition> = range.into_iter(RING_SIZE).collect();
+        assert_eq!(result, vec![0, 1, 2, 3, 4]);
+
+        let range = RingRange { start: 9, end: 1 };
+        let result: Vec<NodePosition> = range.into_iter(RING_SIZE).collect();
+        assert_eq!(result, vec![9, 0]);
+
+        let range = RingRange { start: 0, end: 0 };
+        let result: Vec<NodePosition> = range.into_iter(RING_SIZE).collect();
+        assert_eq!(result, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    }
 
     #[test]
     fn test_no_nodes_present() {
