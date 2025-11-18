@@ -11,6 +11,7 @@
 
 mod assignment;
 pub mod heartbeat;
+pub mod internode;
 mod network;
 pub mod range_manager;
 

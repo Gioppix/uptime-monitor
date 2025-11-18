@@ -5,7 +5,9 @@
     "actix",
     "utoipa",
     "addrs",
-    "chrono"
+    "chrono",
+    "collab",
+    "reqwest"
   ],
   "userWords": [
     " "
