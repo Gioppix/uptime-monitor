@@ -13,6 +13,7 @@ pub type NodePosition = u32;
 ///
 /// The range is inclusive of `start` and exclusive of `end`.
 /// When `end < start`, the range wraps around the ring.
+// TODO: also include ring size
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RingRange {
     pub start: NodePosition,
@@ -117,7 +118,7 @@ pub fn calculate_node_range(
 }
 
 impl RingRange {
-    pub fn into_iter(&self, ring_size: NodePosition) -> RingRangeIterator {
+    pub fn iter(&self, ring_size: NodePosition) -> RingRangeIterator {
         RingRangeIterator {
             range: *self,
             ring_size,
@@ -164,20 +165,24 @@ mod tests {
         const RING_SIZE: NodePosition = 10;
 
         let range = RingRange { start: 0, end: 1 };
-        let result: Vec<NodePosition> = range.into_iter(RING_SIZE).collect();
+        let result: Vec<NodePosition> = range.iter(RING_SIZE).collect();
         assert_eq!(result, vec![0]);
 
         let range = RingRange { start: 0, end: 5 };
-        let result: Vec<NodePosition> = range.into_iter(RING_SIZE).collect();
+        let result: Vec<NodePosition> = range.iter(RING_SIZE).collect();
         assert_eq!(result, vec![0, 1, 2, 3, 4]);
 
         let range = RingRange { start: 9, end: 1 };
-        let result: Vec<NodePosition> = range.into_iter(RING_SIZE).collect();
+        let result: Vec<NodePosition> = range.iter(RING_SIZE).collect();
         assert_eq!(result, vec![9, 0]);
 
         let range = RingRange { start: 0, end: 0 };
-        let result: Vec<NodePosition> = range.into_iter(RING_SIZE).collect();
+        let result: Vec<NodePosition> = range.iter(RING_SIZE).collect();
         assert_eq!(result, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+        let range = RingRange { start: 0, end: 3 };
+        let result: Vec<NodePosition> = range.iter(3).collect();
+        assert_eq!(result, vec![0, 1, 2]);
     }
 
     #[test]

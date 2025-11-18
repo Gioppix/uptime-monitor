@@ -10,13 +10,29 @@ use scylla::{client::session::Session, response::query_result::QueryRowsResult};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "UPPERCASE")]
+pub enum Method {
+    #[strum(serialize = "GET")]
+    Get,
+    #[strum(serialize = "POST")]
+    Post,
+    #[strum(serialize = "PUT")]
+    Put,
+    #[strum(serialize = "DELETE")]
+    Delete,
+    #[strum(serialize = "HEAD")]
+    Head,
+}
+
+#[derive(Clone)]
 pub struct ServiceCheck {
     pub check_id: Uuid,
     pub service_id: Uuid,
     pub region: Region,
     pub check_name: String,
     pub url: String,
-    pub http_method: String,
+    pub http_method: Method,
     pub check_frequency_seconds: i32,
     pub timeout_seconds: i32,
     pub expected_status_code: i32,
@@ -67,7 +83,7 @@ fn parse_service_check_rows(result: QueryRowsResult) -> Result<Vec<ServiceCheck>
             region: region_str.parse()?,
             check_name,
             url,
-            http_method,
+            http_method: http_method.parse()?,
             check_frequency_seconds,
             timeout_seconds,
             expected_status_code,
@@ -111,7 +127,7 @@ pub async fn fetch_health_checks(
     let prepared = session.prepare(query).await?;
     let region_str = region.to_identifier();
 
-    let buckets = ring_range.into_iter(ring_size);
+    let buckets = ring_range.iter(ring_size);
 
     let all_checks = stream::iter(buckets)
         .map(|b| (b, prepared.clone()))
@@ -133,6 +149,29 @@ pub async fn fetch_health_checks(
         .collect();
 
     Ok(all_checks)
+}
+
+impl ServiceCheck {
+    #[cfg(test)]
+    pub fn example() -> Self {
+        use std::collections::HashMap;
+
+        ServiceCheck {
+            check_id: Uuid::new_v4(),
+            service_id: Uuid::new_v4(),
+            region: Region::UsEast,
+            check_name: "Example Health Check".to_string(),
+            url: "https://example.com/health".to_string(),
+            http_method: Method::Get,
+            check_frequency_seconds: 60,
+            timeout_seconds: 30,
+            expected_status_code: 200,
+            request_headers: HashMap::new(),
+            request_body: String::new(),
+            is_enabled: true,
+            created_at: Utc::now(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -162,7 +201,7 @@ mod tests {
             uuid!("00000000-0000-0000-0000-000000000001")
         );
         assert_eq!(checks[0].check_name, "Test Health Check 1");
-        assert_eq!(checks[0].http_method, "GET");
+        assert_eq!(checks[0].http_method, Method::Get);
         assert_eq!(checks[0].request_headers.len(), 2);
 
         // Case 2: Multiple buckets

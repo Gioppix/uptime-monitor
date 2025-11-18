@@ -95,15 +95,16 @@ CREATE TABLE IF NOT EXISTS check_results
 (
     result_id             uuid,
     service_check_id      uuid,
+    region                text,
     day                   date,
     check_started_at      timestamp,
     response_time_micros  bigint,
     status_code           int,
-    is_success            boolean,
+    matches_expected      boolean,
     response_body_fetched boolean,
     response_body         text,
 
-    PRIMARY KEY ((service_check_id, day), check_started_at, result_id)
+    PRIMARY KEY ((service_check_id, region, day), check_started_at)
 ) WITH CLUSTERING ORDER BY (check_started_at DESC)
    AND DEFAULT_TIME_TO_LIVE = 7776000;
 

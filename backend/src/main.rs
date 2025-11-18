@@ -22,6 +22,7 @@ const DATABASE_KEYSPACE: &str = env_str!("DATABASE_KEYSPACE");
 const HEARTBEAT_INTERVAL_SECONDS: u64 = env_u64!("HEARTBEAT_INTERVAL_SECONDS");
 const DEV_MODE: bool = env_bool!("DEV_MODE");
 
+const CURRENT_BUCKET_VERSION: u32 = env_u32!("CURRENT_BUCKET_VERSION");
 const CURRENT_BUCKETS_COUNT: u32 = env_u32!("CURRENT_BUCKETS_COUNT");
 const REPLICATION_FACTOR: u32 = env_u32!("REPLICATION_FACTOR");
 
@@ -47,6 +48,10 @@ fn get_runtime_envs() -> (
 
 #[tokio::main]
 async fn main() {
+    env_logger::builder()
+        .format_timestamp(Some(env_logger::TimestampPrecision::Millis))
+        .init();
+
     let (process_id, node_urls, replica_id, region, git_sha) = get_runtime_envs();
 
     let database = connect_db(&node_urls, DATABASE_KEYSPACE)
@@ -91,9 +96,14 @@ async fn main() {
         )
         .await;
 
-    let worker = Worker::new(range_updates);
+    let worker = Worker::new(
+        region,
+        CURRENT_BUCKET_VERSION as i16,
+        CURRENT_BUCKETS_COUNT,
+        range_updates,
+    );
 
-    let stop_worker = worker.start();
+    let stop_worker = worker.start(database.clone());
 
     start_server(state, listener)
         .await
