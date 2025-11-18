@@ -32,6 +32,10 @@ get_if_addrs = "0.5.3"
 rand_distr = "0.5.1"
 log = "0.4.28"
 strum = { version = "0.27.2", features = ["derive"] }
+tokio-stream = "0.1.17"
+
+[dev-dependencies]
+httpmock = "0.8.2"
 
 [build-dependencies]
 dotenvy = "0.15.7"

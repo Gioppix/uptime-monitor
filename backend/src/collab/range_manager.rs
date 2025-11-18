@@ -28,8 +28,18 @@ impl RangeManager {
     ) -> Result<()> {
         let current_state = heartbeat.get_alive_workers().await?;
         let range = calculate_node_range(self.node_id, self.replication_factor, &current_state);
+        let old_range = *tx.borrow();
 
-        if *tx.borrow() != range {
+        if old_range != range {
+            info!(
+                "Detected range change: old='{}', new='{}'",
+                old_range
+                    .map(|r| r.to_string())
+                    .unwrap_or_else(|| "none".to_string()),
+                range
+                    .map(|r| r.to_string())
+                    .unwrap_or_else(|| "none".to_string())
+            );
             tx.send(range)?;
         }
 

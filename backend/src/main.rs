@@ -97,11 +97,14 @@ async fn main() {
         .await;
 
     let worker = Worker::new(
+        database.clone(),
         region,
         CURRENT_BUCKET_VERSION as i16,
         CURRENT_BUCKETS_COUNT,
         range_updates,
-    );
+    )
+    .await
+    .expect("worker initialization failed");
 
     let stop_worker = worker.start(database.clone());
 
@@ -111,5 +114,5 @@ async fn main() {
 
     heartbeat.stop().await;
     stop_range_manager();
-    stop_worker();
+    stop_worker.await;
 }

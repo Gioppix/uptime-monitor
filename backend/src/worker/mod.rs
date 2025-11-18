@@ -7,10 +7,13 @@ use crate::{
     database::Database,
     env_u32,
     regions::Region,
-    worker::fetch::{ServiceCheck, fetch_health_checks},
+    worker::{
+        check::{execute::execute_check, save::ResultSaveManager},
+        fetch::{ServiceCheck, fetch_health_checks},
+    },
 };
 use anyhow::Result;
-use log::{error, info};
+use log::{error, info, trace, warn};
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashSet},
@@ -67,37 +70,54 @@ impl Task {
     }
 }
 
-pub struct Worker {
+pub struct WorkerMetadata {
     region: Region,
     bucket_version: i16,
     bucket_count: NodePosition,
+}
+
+pub struct Worker {
+    metadata: WorkerMetadata,
     range_updates: Receiver<Option<RingRange>>,
     next_executions: Arc<Mutex<BinaryHeap<Task>>>,
     semaphore: Arc<Semaphore>,
+    http_client: reqwest::Client,
+    save_manager: ResultSaveManager,
 }
 
 impl Worker {
-    pub fn new(
+    pub async fn new(
+        db: Arc<Database>,
         region: Region,
         bucket_version: i16,
         bucket_count: NodePosition,
         range_updates: Receiver<Option<RingRange>>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let instance = Self {
             range_updates,
-            region,
-            bucket_version,
-            bucket_count,
+            metadata: WorkerMetadata {
+                region,
+                bucket_version,
+                bucket_count,
+            },
             next_executions: Default::default(),
             semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_HEALTH_CHECKS as usize)),
-        }
+            http_client: reqwest::Client::new(),
+            save_manager: ResultSaveManager::new(db, region).await?,
+        };
+
+        Ok(instance)
     }
 
-    pub fn start(self, session: Arc<Database>) -> impl FnOnce() {
+    pub fn start(self, session: Arc<Database>) -> impl Future<Output = ()> {
         // Clone before moving `self`
         let range_updates = self.range_updates.clone();
-        let next_executions = self.next_executions.clone();
+        let sync_task_next_executions = self.next_executions.clone();
+        let work_task_next_executions = self.next_executions.clone();
         let semaphore = self.semaphore.clone();
+        let http_client = self.http_client.clone();
+        let metadata = self.metadata;
+        let save_manager = Arc::new(self.save_manager);
 
         let (queue_update_tx, queue_update_rx) = watch::channel(());
 
@@ -109,7 +129,13 @@ impl Worker {
 
                 // Await here so that if the range updates in the meantime values are discarded,
                 // except the last one that will be read on the next iteration
-                let result = self.handle_new_range(session.clone(), range).await;
+                let result = Self::handle_new_range(
+                    &metadata,
+                    &sync_task_next_executions,
+                    session.clone(),
+                    range,
+                )
+                .await;
 
                 if let Err(error) = result {
                     error!("error handling new range: {error}")
@@ -122,36 +148,55 @@ impl Worker {
         let (task_tx, mut task_rx) = mpsc::unbounded_channel();
 
         let work_task = tokio::spawn(Self::work_task_body(
-            next_executions,
+            work_task_next_executions,
             queue_update_rx,
             task_tx,
         ));
 
+        let save_manager_clone = save_manager.clone();
         let listen_task = tokio::spawn(async move {
             while let Some(task) = task_rx.recv().await {
                 let semaphore_clone = semaphore.clone();
+                let client_clone = http_client.clone();
+                let save_manager_clone = save_manager_clone.clone();
+
                 tokio::spawn(async move {
                     let guard = semaphore_clone.acquire().await.expect("semaphore closed");
-                    info!(
-                        "Executing health check task: {:?} {}",
-                        task.check_name, task.check_frequency_seconds
-                    );
-                    time::sleep(Duration::from_millis(500)).await;
+                    let result = execute_check(&client_clone, &task).await;
                     drop(guard);
+
+                    let result = result.and_then(|r| save_manager_clone.save(r));
+
+                    if let Err(e) = result {
+                        error!("error executing check: {e}");
+                    }
                 });
             }
         });
 
-        let close_function = move || {
+        info!("Worker started");
+
+        // Return a future. It will not be executed until polled
+        async move {
             work_task.abort();
             sync_task.abort();
             listen_task.abort();
+
+            // TODO fix to wait at least the MAXIMUM_TIMEOUT
+            tokio::time::sleep(Duration::from_secs(5)).await;
+
+            // This should succeed as other instances are dropped after the abortion
+            match Arc::into_inner(save_manager) {
+                Some(save_manager) => {
+                    save_manager.close().await;
+                }
+                None => {
+                    warn!("someone is still using save_manager");
+                }
+            }
+
             info!("Worker stopped");
-        };
-
-        info!("Worker started");
-
-        close_function
+        }
     }
 
     /// Spawns the main work loop that executes scheduled health check tasks.
@@ -174,7 +219,7 @@ impl Worker {
                     .await;
 
             for task in tasks {
-                info!(
+                trace!(
                     "Sent health check task for execution: {:?} {}",
                     task.check_name, task.check_frequency_seconds
                 );
@@ -245,7 +290,8 @@ impl Worker {
     }
 
     async fn handle_new_range(
-        &self,
+        metadata: &WorkerMetadata,
+        next_executions: &Arc<Mutex<BinaryHeap<Task>>>,
         session: Arc<Database>,
         range: Option<RingRange>,
     ) -> Result<()> {
@@ -253,18 +299,18 @@ impl Worker {
             Some(range) => {
                 let new_items = fetch_health_checks(
                     &session,
-                    self.region,
-                    self.bucket_version,
+                    metadata.region,
+                    metadata.bucket_version,
                     range,
-                    self.bucket_count,
+                    metadata.bucket_count,
                 )
                 .await?;
 
-                let mut executions = self.next_executions.lock().await;
+                let mut executions = next_executions.lock().await;
                 Self::merge_new_checks(new_items, &mut executions);
             }
             None => {
-                let mut executions = self.next_executions.lock().await;
+                let mut executions = next_executions.lock().await;
                 executions.clear()
             }
         }
@@ -284,6 +330,7 @@ impl Worker {
         }
 
         // Track which items are already scheduled
+        // TODO: update other fields
         let scheduled_items: HashSet<_> = heap.iter().map(|task| task.details.check_id).collect();
 
         // Schedule immediate executions for new items
@@ -406,7 +453,7 @@ mod tests {
         let session = Arc::new(session);
 
         let (_tx, rx) = watch::channel(None);
-        let worker = Worker::new(Region::UsEast, 1, 10, rx);
+        let worker = Worker::new(session.clone(), Region::UsEast, 1, 10, rx).await?;
 
         let check1_id = uuid!("00000000-0000-0000-0000-000000000001");
         let check2_id = uuid!("00000000-0000-0000-0000-000000000002");
@@ -444,9 +491,13 @@ mod tests {
 
         // Test with Some range
         let range = RingRange { start: 0, end: 3 };
-        worker
-            .handle_new_range(session.clone(), Some(range))
-            .await?;
+        Worker::handle_new_range(
+            &worker.metadata,
+            &worker.next_executions,
+            session.clone(),
+            Some(range),
+        )
+        .await?;
 
         {
             let heap = worker.next_executions.lock().await;
@@ -471,7 +522,13 @@ mod tests {
         }
 
         // Test with None range (should clear)
-        worker.handle_new_range(session.clone(), None).await?;
+        Worker::handle_new_range(
+            &worker.metadata,
+            &worker.next_executions,
+            session.clone(),
+            None,
+        )
+        .await?;
 
         {
             let heap = worker.next_executions.lock().await;
