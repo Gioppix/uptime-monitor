@@ -16,7 +16,7 @@ use crate::{
 use std::{env, net::TcpListener, sync::Arc, time::Duration};
 use uuid::Uuid;
 
-const PORT: u32 = env_u32!("PORT");
+const PORT: u16 = env_u32!("PORT") as u16;
 const DATABASE_NODE_URLS: &str = env_str!("DATABASE_NODE_URLS");
 const DATABASE_KEYSPACE: &str = env_str!("DATABASE_KEYSPACE");
 const HEARTBEAT_INTERVAL_SECONDS: u64 = env_u64!("HEARTBEAT_INTERVAL_SECONDS");

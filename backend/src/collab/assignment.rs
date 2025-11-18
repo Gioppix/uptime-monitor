@@ -209,6 +209,7 @@ mod tests {
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000001"),
             position: 100,
+            ..Heartbeat::example()
         });
 
         assert_eq!(
@@ -226,6 +227,7 @@ mod tests {
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000001"),
             position: 100,
+            ..Heartbeat::example()
         });
 
         assert_eq!(
@@ -240,10 +242,12 @@ mod tests {
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000001"),
             position: 100,
+            ..Heartbeat::example()
         });
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000002"),
             position: 200,
+            ..Heartbeat::example()
         });
 
         // node2 wraps around to node1
@@ -262,14 +266,17 @@ mod tests {
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000001"),
             position: 100,
+            ..Heartbeat::example()
         });
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000002"),
             position: 200,
+            ..Heartbeat::example()
         });
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000003"),
             position: 300,
+            ..Heartbeat::example()
         });
 
         assert_eq!(
@@ -316,10 +323,12 @@ mod tests {
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000001"),
             position: 0,
+            ..Heartbeat::example()
         });
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000002"),
             position: TEST_RING_SIZE / 4,
+            ..Heartbeat::example()
         });
 
         for (i, heartbeat) in state.iter().enumerate() {
@@ -353,10 +362,12 @@ mod tests {
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000001"),
             position: 3,
+            ..Heartbeat::example()
         });
         state.insert(Heartbeat {
             node_id: uuid!("00000000-0000-0000-0000-000000000002"),
             position: 6,
+            ..Heartbeat::example()
         });
 
         for _ in 0..1000 {

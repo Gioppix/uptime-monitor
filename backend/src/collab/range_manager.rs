@@ -112,14 +112,17 @@ mod tests {
         nodes.insert(Heartbeat {
             node_id,
             position: 0,
+            socket_address: None,
         });
         nodes.insert(Heartbeat {
             node_id: Uuid::new_v4(),
             position: 1,
+            socket_address: None,
         });
         nodes.insert(Heartbeat {
             node_id: Uuid::new_v4(),
             position: 2,
+            socket_address: None,
         });
 
         let heartbeat = Arc::new(DummyHeartbeatManager::new(nodes));

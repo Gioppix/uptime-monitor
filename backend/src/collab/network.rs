@@ -1,5 +1,6 @@
+use crate::PORT;
 use get_if_addrs::{IfAddr, get_if_addrs};
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
 /// Checks if an IP address is acceptable (IPv6 ULA or IPv4 private).
 fn is_acceptable_address(addr: &IpAddr) -> bool {
@@ -12,7 +13,7 @@ fn is_acceptable_address(addr: &IpAddr) -> bool {
 /// Gets the first private network address (prioritizing IPv6 ULA over IPv4 private).
 ///
 /// Returns `None` if no private addresses are found or if retrieving interfaces fails.
-pub fn get_first_network_address() -> Option<IpAddr> {
+pub fn get_first_network_address() -> Option<SocketAddr> {
     let mut if_addrs = get_if_addrs().ok()?;
 
     if_addrs.sort_by_key(|interface| match interface.addr {
@@ -27,7 +28,7 @@ pub fn get_first_network_address() -> Option<IpAddr> {
         };
 
         if is_acceptable_address(&ip_addr) {
-            return Some(ip_addr);
+            return Some(SocketAddr::new(ip_addr, PORT));
         }
     }
 

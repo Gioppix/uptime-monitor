@@ -1,4 +1,5 @@
 use crate::collab::assignment::NodePosition;
+use crate::collab::network::get_first_network_address;
 use crate::database::Database;
 use crate::regions::Region;
 use anyhow::{Result, bail};
@@ -6,6 +7,7 @@ use chrono::{DateTime, Utc};
 use log::{error, info};
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -30,8 +32,9 @@ async fn insert_heartbeat(
                                         time_bucket_minutes,
                                         timestamp,
                                         position,
-                                        process_id)
-        VALUES (?, ?, ?, ?, ?)
+                                        process_id,
+                                        address)
+        VALUES (?, ?, ?, ?, ?, ?)
     ";
 
     session
@@ -43,6 +46,7 @@ async fn insert_heartbeat(
                 timestamp,
                 position as i32,
                 process_id,
+                get_first_network_address().map(|a| a.to_string()),
             ),
         )
         .await?;
@@ -83,7 +87,8 @@ async fn get_alive_workers(
     let query = "
         SELECT process_id,
                position,
-               timestamp
+               timestamp,
+               address
         FROM workers_heartbeats
         WHERE region = ?
           AND time_bucket_minutes = ?
@@ -99,8 +104,8 @@ async fn get_alive_workers(
             .await?
             .into_rows_result()?;
 
-        for row in rows.rows::<(Uuid, i32, DateTime<Utc>)>()? {
-            let (process_id, position, _timestamp) = row?;
+        for row in rows.rows::<(Uuid, i32, DateTime<Utc>, Option<String>)>()? {
+            let (process_id, position, _timestamp, socket_addr) = row?;
 
             if position < 0 {
                 bail!("cannot have negative position");
@@ -109,6 +114,7 @@ async fn get_alive_workers(
             alive_workers.insert(Heartbeat {
                 node_id: process_id,
                 position: position as u32,
+                socket_address: socket_addr.and_then(|s| s.parse().ok()),
             });
         }
     }
@@ -206,6 +212,7 @@ impl HeartbeatManagerTrait for HeartbeatManager {
 pub struct Heartbeat {
     pub node_id: Uuid,
     pub position: NodePosition,
+    pub socket_address: Option<SocketAddr>,
 }
 
 impl Ord for Heartbeat {
@@ -219,6 +226,17 @@ impl Ord for Heartbeat {
 impl PartialOrd for Heartbeat {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl Heartbeat {
+    #[cfg(test)]
+    pub fn example() -> Self {
+        Self {
+            node_id: Uuid::new_v4(),
+            position: 0,
+            socket_address: None,
+        }
     }
 }
 

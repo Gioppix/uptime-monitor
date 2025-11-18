@@ -116,6 +116,7 @@ CREATE TABLE IF NOT EXISTS workers_heartbeats
     timestamp           timestamp,
     position            int,
     process_id          uuid,
+    address             text,
 
     PRIMARY KEY ((region, time_bucket_minutes), timestamp)
 ) WITH CLUSTERING ORDER BY (timestamp DESC)
