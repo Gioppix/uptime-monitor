@@ -3,6 +3,6 @@ import type { paths } from './schema';
 import { PUBLIC_API_URL } from '$env/static/public';
 
 export const api = createClient<paths>({
-	baseUrl: PUBLIC_API_URL,
-	credentials: 'include'
+    baseUrl: PUBLIC_API_URL,
+    credentials: 'include'
 });
