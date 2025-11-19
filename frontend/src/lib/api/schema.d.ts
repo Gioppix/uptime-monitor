@@ -20,6 +20,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/checks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my checks
+         * @description Lists all checks the authenticated user has access to
+         */
+        get: operations["listMyChecks"];
+        put?: never;
+        /**
+         * Create a new check
+         * @description Creates a new check across multiple regions. The creator automatically gets full access (can_edit and can_see).
+         */
+        post: operations["createCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/checks/{check_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get check by ID
+         * @description Retrieves a check by its ID. User must have access to view the check.
+         */
+        get: operations["getCheck"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete check
+         * @description Deletes a check from all regions. User must have edit access to the check.
+         */
+        delete: operations["deleteCheck"];
+        options?: never;
+        head?: never;
+        /**
+         * Update check
+         * @description Updates a check. User must have edit access to the check.
+         */
+        patch: operations["updateCheck"];
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -140,6 +192,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Check: components["schemas"]["CheckData"] & {
+            /** Format: uuid */
+            check_id: string;
+            regions: components["schemas"]["Region"][];
+        };
+        CheckAccess: {
+            can_edit: boolean;
+            can_see: boolean;
+        };
+        CheckData: {
+            /** Format: int32 */
+            check_frequency_seconds: number;
+            check_name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int32 */
+            expected_status_code: number;
+            http_method: components["schemas"]["Method"];
+            is_enabled: boolean;
+            request_body?: string | null;
+            request_headers: {
+                [key: string]: string;
+            };
+            /** Format: int32 */
+            timeout_seconds: number;
+            url: string;
+        };
+        CheckWithAccess: components["schemas"]["Check"] & components["schemas"]["CheckAccess"];
         CreateUserRequest: {
             password: string;
             username: string;
@@ -148,11 +228,15 @@ export interface components {
             password: string;
             username: string;
         };
+        /** @enum {string} */
+        Method: "GET" | "POST" | "PUT" | "DELETE" | "HEAD";
         PublicUser: {
             /** Format: uuid */
             user_id: string;
             username: string;
         };
+        /** @enum {string} */
+        Region: "UsWest" | "UsEast" | "EuWest" | "SoutheastAsia";
     };
     responses: never;
     parameters: never;
@@ -173,6 +257,230 @@ export interface operations {
         responses: {
             /** @description Home endpoint */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMyChecks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of checks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckWithAccess"][];
+                };
+            };
+            /** @description Unauthorized - authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Check"];
+            };
+        };
+        responses: {
+            /** @description Check created successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Check"];
+                };
+            };
+            /** @description Unauthorized - authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Check found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckWithAccess"];
+                };
+            };
+            /** @description Unauthorized - authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - no access to this check */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Check not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Check deleted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - no edit access to check */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Check not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Check"];
+            };
+        };
+        responses: {
+            /** @description Check updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Check"];
+                };
+            };
+            /** @description Unauthorized - authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - no edit access to check */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Check not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

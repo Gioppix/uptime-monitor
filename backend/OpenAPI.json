@@ -22,6 +22,247 @@
         }
       }
     },
+    "/checks/": {
+      "get": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "List my checks",
+        "description": "Lists all checks the authenticated user has access to",
+        "operationId": "listMyChecks",
+        "responses": {
+          "200": {
+            "description": "List of checks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CheckWithAccess"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - authentication required"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "cookie_auth": []
+          },
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Create a new check",
+        "description": "Creates a new check across multiple regions. The creator automatically gets full access (can_edit and can_see).",
+        "operationId": "createCheck",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Check"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Check created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Check"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - authentication required"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "cookie_auth": []
+          },
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/checks/{check_id}": {
+      "get": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Get check by ID",
+        "description": "Retrieves a check by its ID. User must have access to view the check.",
+        "operationId": "getCheck",
+        "parameters": [
+          {
+            "name": "check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckWithAccess"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - authentication required"
+          },
+          "403": {
+            "description": "Forbidden - no access to this check"
+          },
+          "404": {
+            "description": "Check not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "cookie_auth": []
+          },
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Delete check",
+        "description": "Deletes a check from all regions. User must have edit access to the check.",
+        "operationId": "deleteCheck",
+        "parameters": [
+          {
+            "name": "check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized - authentication required"
+          },
+          "403": {
+            "description": "Forbidden - no edit access to check"
+          },
+          "404": {
+            "description": "Check not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "cookie_auth": []
+          },
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Update check",
+        "description": "Updates a check. User must have edit access to the check.",
+        "operationId": "updateCheck",
+        "parameters": [
+          {
+            "name": "check_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Check"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Check updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Check"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - authentication required"
+          },
+          "403": {
+            "description": "Forbidden - no edit access to check"
+          },
+          "404": {
+            "description": "Check not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "cookie_auth": []
+          },
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -219,6 +460,116 @@
   },
   "components": {
     "schemas": {
+      "Check": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CheckData"
+          },
+          {
+            "type": "object",
+            "required": [
+              "check_id",
+              "regions"
+            ],
+            "properties": {
+              "check_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "regions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Region"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CheckAccess": {
+        "type": "object",
+        "required": [
+          "can_edit",
+          "can_see"
+        ],
+        "properties": {
+          "can_edit": {
+            "type": "boolean"
+          },
+          "can_see": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CheckData": {
+        "type": "object",
+        "required": [
+          "check_name",
+          "url",
+          "http_method",
+          "check_frequency_seconds",
+          "timeout_seconds",
+          "expected_status_code",
+          "request_headers",
+          "is_enabled",
+          "created_at"
+        ],
+        "properties": {
+          "check_frequency_seconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "check_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expected_status_code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "http_method": {
+            "$ref": "#/components/schemas/Method"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "request_body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request_headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckWithAccess": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Check"
+          },
+          {
+            "$ref": "#/components/schemas/CheckAccess"
+          }
+        ]
+      },
       "CreateUserRequest": {
         "type": "object",
         "required": [
@@ -249,6 +600,16 @@
           }
         }
       },
+      "Method": {
+        "type": "string",
+        "enum": [
+          "GET",
+          "POST",
+          "PUT",
+          "DELETE",
+          "HEAD"
+        ]
+      },
       "PublicUser": {
         "type": "object",
         "required": [
@@ -264,6 +625,15 @@
             "type": "string"
           }
         }
+      },
+      "Region": {
+        "type": "string",
+        "enum": [
+          "UsWest",
+          "UsEast",
+          "EuWest",
+          "SoutheastAsia"
+        ]
       }
     },
     "securitySchemes": {
@@ -286,6 +656,10 @@
     {
       "name": "users",
       "description": "User-related endpoints."
+    },
+    {
+      "name": "checks",
+      "description": "Health check management endpoints."
     }
   ]
 }

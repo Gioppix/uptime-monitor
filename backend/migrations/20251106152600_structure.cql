@@ -27,32 +27,13 @@ CREATE TABLE IF NOT EXISTS users_by_username
     PRIMARY KEY (username)
 );
 
-CREATE TABLE IF NOT EXISTS workspaces
-(
-    workspace_id   uuid,
-    workspace_name text,
-    is_public      boolean,
-
-    PRIMARY KEY (workspace_id)
-);
-
-CREATE TABLE IF NOT EXISTS services
-(
-    workspace_id uuid,
-    service_id   uuid,
-    service_name text,
-
-    PRIMARY KEY (workspace_id, service_id)
-);
-
-CREATE TABLE IF NOT EXISTS service_checks
+CREATE TABLE IF NOT EXISTS checks
 (
     check_id                uuid,
     region                  text,
     bucket_version          smallint,
     bucket                  int,
 
-    service_id              uuid,
     check_name              text,
     url                     text,
     http_method             text,
@@ -67,29 +48,18 @@ CREATE TABLE IF NOT EXISTS service_checks
     PRIMARY KEY ((region, bucket_version, bucket), check_id)
 );
 
-CREATE INDEX IF NOT EXISTS service_checks_by_service ON service_checks (service_id) USING 'SAI';
-
-CREATE TABLE IF NOT EXISTS access_by_user
+CREATE TABLE IF NOT EXISTS access_by_check
 (
-    user_id      uuid,
-    user_name    text,
-    can_edit     boolean,
-    can_see      boolean,
-    workspace_id uuid,
+    check_id  uuid,
+    user_id   uuid,
+    user_name text,
+    can_edit  boolean,
+    can_see   boolean,
 
-    PRIMARY KEY (user_id, workspace_id)
+    PRIMARY KEY (check_id, user_id)
 );
 
-CREATE TABLE IF NOT EXISTS access_by_workspace
-(
-    workspace_id uuid,
-    user_id      uuid,
-    user_name    text,
-    can_edit     boolean,
-    can_see      boolean,
-
-    PRIMARY KEY (workspace_id, user_id)
-);
+CREATE INDEX IF NOT EXISTS access_by_check_by_user ON access_by_check (user_id) USING 'SAI';
 
 CREATE TABLE IF NOT EXISTS check_results
 (

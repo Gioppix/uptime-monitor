@@ -24,12 +24,23 @@ generate_openapi_docs() {
         # Find an available port
         PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('', 0)); print(s.getsockname()[1]); s.close()")
         echo "Using port: $PORT"
-        PORT=$PORT cargo build
-        echo Running
-        PORT=$PORT cargo run &
+        echo "Running server..."
+        TEMPFILE=$(mktemp)
+        PORT=$PORT cargo run 2>&1 > "$TEMPFILE" &
         PID=$!
         cd ..
-        sleep 1
+        echo "Waiting for server to be ready on port $PORT..."
+        while ! grep -q ":$PORT" "$TEMPFILE"; do
+            if ! ps -p $PID > /dev/null 2>&1; then
+                echo "Error: Server process died"
+                cat "$TEMPFILE"
+                rm "$TEMPFILE"
+                exit 1
+            fi
+            sleep 0.1
+        done
+        rm "$TEMPFILE"
+        echo "Server ready"
         curl -o backend/OpenAPI.json localhost:$PORT/api/openapi.json
         kill $PID
         jq '.' backend/OpenAPI.json > backend/OpenAPI.json.tmp && mv backend/OpenAPI.json.tmp backend/OpenAPI.json
@@ -57,6 +68,26 @@ start_cassandra() {
     -e MAX_HEAP_SIZE="800M" \
     -e HEAP_NEWSIZE="200M" \
     cassandra:5
+}
+
+reset_dev_database() {
+  echo "Resetting development database..."
+
+  echo "Dropping keyspace 'default_keyspace'..."
+  docker exec -i cassandra1 cqlsh -e "DROP KEYSPACE IF EXISTS default_keyspace;"
+
+  echo "Creating keyspace 'default_keyspace'..."
+  docker exec -i cassandra1 cqlsh -e "CREATE KEYSPACE IF NOT EXISTS default_keyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};"
+
+  echo "Running migrations..."
+  for migration in backend/migrations/*.cql; do
+    if [ -f "$migration" ]; then
+      echo "Applying migration: $(basename $migration)"
+      docker exec -i cassandra1 cqlsh -k default_keyspace < "$migration"
+    fi
+  done
+
+  echo "Database reset complete."
 }
 
 new_migration() {

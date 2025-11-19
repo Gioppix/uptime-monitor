@@ -7,28 +7,24 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use futures::{StreamExt, stream};
 use scylla::{client::session::Session, response::query_result::QueryRowsResult};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::EnumString, strum::Display)]
-#[strum(serialize_all = "UPPERCASE")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Method {
-    #[strum(serialize = "GET")]
     Get,
-    #[strum(serialize = "POST")]
     Post,
-    #[strum(serialize = "PUT")]
     Put,
-    #[strum(serialize = "DELETE")]
     Delete,
-    #[strum(serialize = "HEAD")]
     Head,
 }
 
 #[derive(Clone)]
 pub struct ServiceCheck {
     pub check_id: Uuid,
-    pub service_id: Uuid,
     pub region: Region,
     pub check_name: String,
     pub url: String,
@@ -44,7 +40,6 @@ pub struct ServiceCheck {
 
 fn parse_service_check_rows(result: QueryRowsResult) -> Result<Vec<ServiceCheck>> {
     let rows = result.rows::<(
-        Uuid,
         Uuid,
         String,
         String,
@@ -63,7 +58,6 @@ fn parse_service_check_rows(result: QueryRowsResult) -> Result<Vec<ServiceCheck>
     for row in rows {
         let (
             check_id,
-            service_id,
             check_name,
             url,
             http_method,
@@ -79,11 +73,10 @@ fn parse_service_check_rows(result: QueryRowsResult) -> Result<Vec<ServiceCheck>
 
         checks.push(ServiceCheck {
             check_id,
-            service_id,
             region: region_str.parse()?,
             check_name,
             url,
-            http_method: http_method.parse()?,
+            http_method: serde_plain::from_str(&http_method)?,
             check_frequency_seconds,
             timeout_seconds,
             expected_status_code,
@@ -106,7 +99,6 @@ pub async fn fetch_health_checks(
 ) -> Result<Vec<ServiceCheck>> {
     let query = "
         SELECT check_id,
-               service_id,
                check_name,
                url,
                http_method,
@@ -118,7 +110,7 @@ pub async fn fetch_health_checks(
                is_enabled,
                created_at,
                region
-        FROM service_checks
+        FROM checks
         WHERE region = ?
           AND bucket_version = ?
           AND bucket = ?
@@ -158,7 +150,6 @@ impl ServiceCheck {
 
         ServiceCheck {
             check_id: Uuid::new_v4(),
-            service_id: Uuid::new_v4(),
             region: Region::UsEast,
             check_name: "Example Health Check".to_string(),
             url: "https://example.com/health".to_string(),
@@ -229,6 +220,14 @@ mod tests {
             checks[0].check_id,
             uuid!("00000000-0000-0000-0000-000000000004")
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_method_serialization() -> Result<()> {
+        // Test serialization
+        assert_eq!(serde_plain::to_string(&Method::Get)?, "GET");
 
         Ok(())
     }

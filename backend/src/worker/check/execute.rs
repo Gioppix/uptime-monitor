@@ -107,7 +107,6 @@ mod tests {
         let client = Client::new();
         let check = ServiceCheck {
             check_id: Uuid::new_v4(),
-            service_id: Uuid::new_v4(),
             region: Region::UsEast,
             check_name: String::from("test_check"),
             url: server.url("/"),
@@ -144,7 +143,6 @@ mod tests {
         let client = Client::new();
         let check = ServiceCheck {
             check_id: Uuid::new_v4(),
-            service_id: Uuid::new_v4(),
             region: Region::UsEast,
             check_name: String::from("test_check"),
             url: server.url("/slow"),

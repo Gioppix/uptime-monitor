@@ -1,4 +1,5 @@
 mod auth;
+mod checks;
 mod health;
 mod openapi;
 mod users;
@@ -38,6 +39,7 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
             .service(home)
             .service(health)
             .configure(users::configure_routes)
+            .configure(checks::configure_routes)
             .app_data(data.clone())
             .openapi_service(|api| {
                 SwaggerUi::new("/swagger-ui/{_:.*}").url("/api/openapi.json", api)

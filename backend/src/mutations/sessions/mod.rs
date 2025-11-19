@@ -1,15 +1,14 @@
+use crate::env_u32;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use scylla::client::session::Session;
 use uuid::Uuid;
 
-use crate::env_u32;
-
 pub struct UserSession {
     pub session_id: Uuid,
     pub user_id: Uuid,
-    pub created_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     logged_out: bool,
 }
 
@@ -23,8 +22,13 @@ pub async fn create_session(
     let now = Utc::now();
     let expires_at = now + Duration::days(SESSION_DURATION_DAYS as i64);
 
-    let query =
-        "INSERT INTO sessions (session_id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)";
+    let query = "
+        INSERT INTO sessions (session_id,
+                              user_id,
+                              created_at,
+                              expires_at)
+        VALUES (?, ?, ?, ?)
+    ";
 
     db_session
         .query_unpaged(query, (session_id, user_id, now, expires_at))
@@ -33,8 +37,8 @@ pub async fn create_session(
     Ok(UserSession {
         session_id,
         user_id,
-        created_at: now,
-        expires_at,
+        created_at: Some(now),
+        expires_at: Some(expires_at),
         logged_out: false,
     })
 }
@@ -55,7 +59,13 @@ async fn get_session(db_session: &Session, session_id: Uuid) -> Result<Option<Us
         .await?
         .into_rows_result()?;
 
-    let rows = result.rows::<(Uuid, Uuid, DateTime<Utc>, DateTime<Utc>, Option<bool>)>()?;
+    let rows = result.rows::<(
+        Uuid,
+        Uuid,
+        Option<DateTime<Utc>>,
+        Option<DateTime<Utc>>,
+        Option<bool>,
+    )>()?;
 
     if let Some(row) = rows.into_iter().next() {
         let (session_id, user_id, created_at, expires_at, logger_out) = row?;
@@ -78,7 +88,12 @@ pub async fn get_valid_session_user_id(
     let maybe_user_session = get_session(db_session, session_id).await?;
 
     if let Some(user_session) = maybe_user_session {
-        if user_session.expires_at > Utc::now() && !user_session.logged_out {
+        let is_expired = match user_session.expires_at {
+            Some(expires_at) => expires_at <= Utc::now(),
+            None => true,
+        };
+
+        if !is_expired && !user_session.logged_out {
             Ok(Some(user_session.user_id))
         } else {
             Ok(None)
@@ -103,115 +118,78 @@ mod tests {
     const FIXTURES: &str = include_str!("fixtures.cql");
 
     #[tokio::test]
-    async fn test_create_and_get_session() -> Result<()> {
+    async fn test_session_operations() -> Result<()> {
         let (db_session, _keyspace) = create_test_database(Some(FIXTURES)).await?;
-
         let user_id = uuid!("11111111-1111-1111-1111-111111111111");
         let session_id = Uuid::new_v4();
 
-        // Create session
+        // Test: Create and retrieve session
         let created = create_session(&db_session, user_id, session_id).await?;
         assert_eq!(created.session_id, session_id);
         assert_eq!(created.user_id, user_id);
+        assert!(!created.logged_out);
+        assert!(created.expires_at.is_some());
 
-        // Get session
         let retrieved = get_session(&db_session, session_id).await?;
         assert!(retrieved.is_some());
-        let retrieved = retrieved.unwrap();
-        assert_eq!(retrieved.session_id, session_id);
-        assert_eq!(retrieved.user_id, user_id);
+        assert_eq!(retrieved.unwrap().user_id, user_id);
 
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_get_nonexistent_session() -> Result<()> {
-        let (db_session, _keyspace) = create_test_database(Some(FIXTURES)).await?;
-
-        let session_id = uuid!("99999999-9999-9999-9999-999999999999");
-        let retrieved = get_session(&db_session, session_id).await?;
-        assert!(retrieved.is_none());
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_session_validity() -> Result<()> {
-        let (db_session, _keyspace) = create_test_database(Some(FIXTURES)).await?;
-
-        // Valid session from fixtures
-        let valid_session_id = uuid!("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        assert!(
-            get_valid_session_user_id(&db_session, valid_session_id)
-                .await?
-                .is_some()
+        // Test: Valid session returns user_id
+        assert_eq!(
+            get_valid_session_user_id(&db_session, session_id).await?,
+            Some(user_id)
         );
 
-        // Expired session from fixtures
-        let expired_session_id = uuid!("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        assert!(
-            get_valid_session_user_id(&db_session, expired_session_id)
-                .await?
-                .is_none()
-        );
-
-        // Non-existent session
-        let nonexistent_id = uuid!("99999999-9999-9999-9999-999999999999");
-        assert!(
-            get_valid_session_user_id(&db_session, nonexistent_id)
-                .await?
-                .is_none()
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_delete_session() -> Result<()> {
-        let (db_session, _keyspace) = create_test_database(Some(FIXTURES)).await?;
-
-        let user_id = uuid!("11111111-1111-1111-1111-111111111111");
-        let session_id = Uuid::new_v4();
-
-        // Create and verify session exists
-        create_session(&db_session, user_id, session_id).await?;
-        assert!(get_session(&db_session, session_id).await?.is_some());
-
-        get_valid_session_user_id(&db_session, session_id)
-            .await?
-            .unwrap();
-
-        // Delete session
+        // Test: Logout invalidates session
         log_out_session(&db_session, session_id).await?;
-
         assert_eq!(
             get_valid_session_user_id(&db_session, session_id).await?,
             None
         );
 
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_multiple_sessions_per_user() -> Result<()> {
-        let (db_session, _keyspace) = create_test_database(Some(FIXTURES)).await?;
-
-        let user_id = uuid!("11111111-1111-1111-1111-111111111111");
-        let session_id1 = Uuid::new_v4();
+        // Test: Multiple sessions per user
         let session_id2 = Uuid::new_v4();
-
-        // Create two sessions for same user
-        create_session(&db_session, user_id, session_id1).await?;
         create_session(&db_session, user_id, session_id2).await?;
+        assert!(
+            get_valid_session_user_id(&db_session, session_id2)
+                .await?
+                .is_some()
+        );
 
-        // Both sessions should exist and be valid
-        let sess1 = get_session(&db_session, session_id1).await?;
-        let sess2 = get_session(&db_session, session_id2).await?;
+        // Test: Nonexistent session
+        let nonexistent = uuid!("99999999-9999-9999-9999-999999999999");
+        assert!(get_session(&db_session, nonexistent).await?.is_none());
+        assert!(
+            get_valid_session_user_id(&db_session, nonexistent)
+                .await?
+                .is_none()
+        );
 
-        assert!(sess1.is_some());
-        assert!(sess2.is_some());
-        assert_eq!(sess1.unwrap().user_id, user_id);
-        assert_eq!(sess2.unwrap().user_id, user_id);
+        // Test: Valid session from fixtures
+        let valid_id = uuid!("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        assert!(
+            get_valid_session_user_id(&db_session, valid_id)
+                .await?
+                .is_some()
+        );
+
+        // Test: Expired session from fixtures
+        let expired_id = uuid!("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        assert!(
+            get_valid_session_user_id(&db_session, expired_id)
+                .await?
+                .is_none()
+        );
+
+        // Test: Null expires_at treated as expired
+        let null_expiry_id = uuid!("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        let session = get_session(&db_session, null_expiry_id).await?.unwrap();
+        assert_eq!(session.expires_at, None);
+        assert!(
+            get_valid_session_user_id(&db_session, null_expiry_id)
+                .await?
+                .is_none()
+        );
 
         Ok(())
     }

@@ -29,6 +29,8 @@ use tokio::{
     time,
 };
 
+pub use fetch::Method;
+
 const MAX_CONCURRENT_HEALTH_CHECKS: u32 = env_u32!("MAX_CONCURRENT_HEALTH_CHECKS");
 const SCHEDULING_TOLERANCE_MILLIS: u64 = 100;
 

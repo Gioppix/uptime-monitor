@@ -10,6 +10,7 @@ use utoipa::openapi::{
     tags(
         (name = "health", description = "Health-related endpoints."),
         (name = "users", description = "User-related endpoints."),
+        (name = "checks", description = "Health check management endpoints."),
     ),
     modifiers(&SecurityAddon),
 )]
