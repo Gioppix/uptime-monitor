@@ -1,3 +1,4 @@
+use crate::database::preparer::CachedPreparedStatement;
 use crate::env_u32;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
@@ -14,6 +15,16 @@ pub struct UserSession {
 
 const SESSION_DURATION_DAYS: u32 = env_u32!("SESSION_DURATION_DAYS");
 
+static CREATE_SESSION_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    INSERT INTO sessions (session_id,
+                          user_id,
+                          created_at,
+                          expires_at)
+    VALUES (?, ?, ?, ?)
+    ",
+);
+
 pub async fn create_session(
     db_session: &Session,
     user_id: Uuid,
@@ -22,16 +33,8 @@ pub async fn create_session(
     let now = Utc::now();
     let expires_at = now + Duration::days(SESSION_DURATION_DAYS as i64);
 
-    let query = "
-        INSERT INTO sessions (session_id,
-                              user_id,
-                              created_at,
-                              expires_at)
-        VALUES (?, ?, ?, ?)
-    ";
-
-    db_session
-        .query_unpaged(query, (session_id, user_id, now, expires_at))
+    CREATE_SESSION_QUERY
+        .execute_unpaged(db_session, (session_id, user_id, now, expires_at))
         .await?;
 
     Ok(UserSession {
@@ -43,19 +46,21 @@ pub async fn create_session(
     })
 }
 
-async fn get_session(db_session: &Session, session_id: Uuid) -> Result<Option<UserSession>> {
-    let query = "
-        SELECT session_id,
-               user_id,
-               created_at,
-               expires_at,
-               logged_out
-        FROM sessions
-        WHERE session_id = ?
-    ";
+static GET_SESSION_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT session_id,
+           user_id,
+           created_at,
+           expires_at,
+           logged_out
+    FROM sessions
+    WHERE session_id = ?
+    ",
+);
 
-    let result = db_session
-        .query_unpaged(query, (session_id,))
+async fn get_session(db_session: &Session, session_id: Uuid) -> Result<Option<UserSession>> {
+    let result = GET_SESSION_QUERY
+        .execute_unpaged(db_session, (session_id,))
         .await?
         .into_rows_result()?;
 
@@ -103,9 +108,13 @@ pub async fn get_valid_session_user_id(
     }
 }
 
+static LOG_OUT_SESSION_QUERY: CachedPreparedStatement =
+    CachedPreparedStatement::new("UPDATE sessions SET logged_out = true WHERE session_id = ?");
+
 pub async fn log_out_session(db_session: &Session, session_id: Uuid) -> Result<()> {
-    let query = "UPDATE sessions SET logged_out = true WHERE session_id = ?";
-    db_session.query_unpaged(query, (session_id,)).await?;
+    LOG_OUT_SESSION_QUERY
+        .execute_unpaged(db_session, (session_id,))
+        .await?;
     Ok(())
 }
 

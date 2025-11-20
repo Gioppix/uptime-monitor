@@ -1,12 +1,28 @@
 use crate::database::DATABASE_CONCURRENT_REQUESTS;
+use crate::database::preparer::CachedPreparedStatement;
 use crate::{database::Database, regions::Region, worker::check::execute::CheckResult};
 use anyhow::Result;
 use futures::StreamExt;
-use scylla::statement::prepared::PreparedStatement;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+
+static SAVE_CHECK_RESULT_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    INSERT INTO check_results (result_id,
+                               service_check_id,
+                               region,
+                               day,
+                               check_started_at,
+                               response_time_micros,
+                               status_code,
+                               matches_expected,
+                               response_body_fetched,
+                               response_body)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ",
+);
 
 pub struct ResultSaveManager {
     sender: mpsc::UnboundedSender<CheckResult>,
@@ -15,25 +31,11 @@ pub struct ResultSaveManager {
 
 impl ResultSaveManager {
     pub async fn new(db: Arc<Database>, region: Region) -> Result<Self> {
-        let query = "
-            INSERT INTO check_results (result_id,
-                                       service_check_id,
-                                       region,
-                                       day,
-                                       check_started_at,
-                                       response_time_micros,
-                                       status_code,
-                                       matches_expected,
-                                       response_body_fetched,
-                                       response_body)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ";
-
-        let prepared_statement = db.prepare(query).await?;
+        SAVE_CHECK_RESULT_QUERY.optimistically_prepare(&db).await?;
 
         let (sender, receiver) = mpsc::unbounded_channel();
 
-        let worker_handle = tokio::spawn(Self::worker(db, prepared_statement, receiver, region));
+        let worker_handle = tokio::spawn(Self::worker(db, receiver, region));
 
         Ok(Self {
             sender,
@@ -43,18 +45,14 @@ impl ResultSaveManager {
 
     async fn worker(
         db: Arc<Database>,
-        prepared_statement: PreparedStatement,
         receiver: mpsc::UnboundedReceiver<CheckResult>,
         region: Region,
     ) {
         UnboundedReceiverStream::new(receiver)
             .for_each_concurrent(DATABASE_CONCURRENT_REQUESTS as usize, |result| {
                 let db = db.clone();
-                let prepared_statement = prepared_statement.clone();
                 async move {
-                    if let Err(e) =
-                        Self::save_single(&db, &prepared_statement, result, region).await
-                    {
+                    if let Err(e) = Self::save_single(&db, result, region).await {
                         log::error!("Failed to save check result: {:?}", e);
                     }
                 }
@@ -62,31 +60,27 @@ impl ResultSaveManager {
             .await
     }
 
-    async fn save_single(
-        db: &Database,
-        prepared_statement: &PreparedStatement,
-        result: CheckResult,
-        region: Region,
-    ) -> Result<()> {
+    async fn save_single(db: &Database, result: CheckResult, region: Region) -> Result<()> {
         let region_str = region.to_identifier();
         let day = result.check_started_at.date_naive();
 
-        db.execute_unpaged(
-            prepared_statement,
-            (
-                result.result_id,
-                result.service_check_id,
-                region_str,
-                day,
-                result.check_started_at,
-                result.response_time_micros,
-                result.status_code,
-                result.matches_expected,
-                result.response_body_fetched,
-                result.response_body.as_ref(),
-            ),
-        )
-        .await?;
+        SAVE_CHECK_RESULT_QUERY
+            .execute_unpaged(
+                db,
+                (
+                    result.result_id,
+                    result.service_check_id,
+                    region_str,
+                    day,
+                    result.check_started_at,
+                    result.response_time_micros,
+                    result.status_code,
+                    result.matches_expected,
+                    result.response_body_fetched,
+                    result.response_body.as_ref(),
+                ),
+            )
+            .await?;
 
         Ok(())
     }

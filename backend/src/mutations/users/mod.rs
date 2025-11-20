@@ -1,5 +1,6 @@
 mod password;
 
+use crate::database::preparer::CachedPreparedStatement;
 use crate::mutations::users::password::hash_password;
 use anyhow::Result;
 use scylla::{client::session::Session, statement::batch::Batch};
@@ -19,11 +20,19 @@ pub struct PublicUser {
     pub username: String,
 }
 
-pub async fn get_user_by_id(session: &Session, user_id: Uuid) -> Result<Option<User>> {
-    let query = "SELECT user_id, username, user_hashed_password FROM users_by_id WHERE user_id = ?";
+static GET_USER_BY_ID_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT user_id,
+           username,
+           user_hashed_password
+    FROM users_by_id
+    WHERE user_id = ?
+    ",
+);
 
-    let result = session
-        .query_unpaged(query, (user_id,))
+pub async fn get_user_by_id(session: &Session, user_id: Uuid) -> Result<Option<User>> {
+    let result = GET_USER_BY_ID_QUERY
+        .execute_unpaged(session, (user_id,))
         .await?
         .into_rows_result()?;
 
@@ -40,13 +49,20 @@ pub async fn get_user_by_id(session: &Session, user_id: Uuid) -> Result<Option<U
         Ok(None)
     }
 }
+
+static GET_USER_BY_USERNAME_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT user_id,
+           username,
+           user_hashed_password
+    FROM users_by_username
+    WHERE username = ?
+    ",
+);
 
 pub async fn get_user_by_username(session: &Session, username: &str) -> Result<Option<User>> {
-    let query =
-        "SELECT user_id, username, user_hashed_password FROM users_by_username WHERE username = ?";
-
-    let result = session
-        .query_unpaged(query, (username,))
+    let result = GET_USER_BY_USERNAME_QUERY
+        .execute_unpaged(session, (username,))
         .await?
         .into_rows_result()?;
 
@@ -64,32 +80,45 @@ pub async fn get_user_by_username(session: &Session, username: &str) -> Result<O
     }
 }
 
+static CREATE_USER_BY_ID_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    INSERT INTO users_by_id (user_id, username, user_hashed_password)
+    VALUES (?, ?, ?)
+    ",
+);
+
+static CREATE_USER_BY_USERNAME_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    INSERT INTO users_by_username (username, user_id, user_hashed_password)
+    VALUES (?, ?, ?)
+    ",
+);
+
 pub async fn create_user(
-    session: &Session,
+    db: &Session,
     user_id: Uuid,
     username: &str,
     password: &str,
 ) -> Result<()> {
     let user_hashed_password = hash_password(password)?;
 
-    let query_by_id =
-        "INSERT INTO users_by_id (user_id, username, user_hashed_password) VALUES (?, ?, ?)";
-    let query_by_username =
-        "INSERT INTO users_by_username (username, user_id, user_hashed_password) VALUES (?, ?, ?)";
+    let prepared_by_id = CREATE_USER_BY_ID_QUERY.get_prepared_statement(db).await?;
+    let prepared_by_username = CREATE_USER_BY_USERNAME_QUERY
+        .get_prepared_statement(db)
+        .await?;
 
     let mut batch = Batch::default();
-    batch.append_statement(query_by_id);
-    batch.append_statement(query_by_username);
+    batch.append_statement(prepared_by_id);
+    batch.append_statement(prepared_by_username);
 
-    session
-        .batch(
-            &batch,
-            (
-                (user_id, &username, &user_hashed_password),
-                (&username, user_id, &user_hashed_password),
-            ),
-        )
-        .await?;
+    db.batch(
+        &batch,
+        (
+            (user_id, &username, &user_hashed_password),
+            (&username, user_id, &user_hashed_password),
+        ),
+    )
+    .await?;
 
     Ok(())
 }

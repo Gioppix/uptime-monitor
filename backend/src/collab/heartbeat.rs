@@ -1,6 +1,7 @@
 use crate::collab::assignment::NodePosition;
 use crate::collab::network::get_first_network_address;
 use crate::database::Database;
+use crate::database::preparer::CachedPreparedStatement;
 use crate::regions::Region;
 use anyhow::{Result, bail};
 use chrono::{DateTime, Utc};
@@ -19,6 +20,18 @@ fn get_time_bucket_minutes(timestamp: DateTime<Utc>) -> i64 {
     timestamp.timestamp() / 60
 }
 
+static INSERT_HEARTBEAT_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    INSERT INTO workers_heartbeats (region,
+                                    time_bucket_minutes,
+                                    timestamp,
+                                    position,
+                                    process_id,
+                                    address)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ",
+);
+
 async fn insert_heartbeat(
     session: &Database,
     region: Region,
@@ -27,19 +40,10 @@ async fn insert_heartbeat(
     timestamp: DateTime<Utc>,
 ) -> Result<()> {
     let time_bucket = get_time_bucket_minutes(timestamp);
-    let query = "
-        INSERT INTO workers_heartbeats (region,
-                                        time_bucket_minutes,
-                                        timestamp,
-                                        position,
-                                        process_id,
-                                        address)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ";
 
-    session
-        .query_unpaged(
-            query,
+    INSERT_HEARTBEAT_QUERY
+        .execute_unpaged(
+            session,
             (
                 region.to_identifier(),
                 time_bucket,
@@ -54,25 +58,40 @@ async fn insert_heartbeat(
     Ok(())
 }
 
+static INSERT_WORKER_METADATA_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    INSERT INTO workers_metadata (process_id,
+                                  replica_id,
+                                  git_sha)
+    VALUES (?, ?, ?)
+    ",
+);
+
 async fn insert_worker_metadata(
     session: &Database,
     process_id: Uuid,
     replica_id: Option<&str>,
     git_sha: Option<&str>,
 ) -> Result<()> {
-    let query = "
-        INSERT INTO workers_metadata (process_id,
-                                      replica_id,
-                                      git_sha)
-        VALUES (?, ?, ?)
-    ";
-
-    session
-        .query_unpaged(query, (process_id, replica_id, git_sha))
+    INSERT_WORKER_METADATA_QUERY
+        .execute_unpaged(session, (process_id, replica_id, git_sha))
         .await?;
 
     Ok(())
 }
+
+static GET_ALIVE_WORKERS_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT process_id,
+           position,
+           timestamp,
+           address
+    FROM workers_heartbeats
+    WHERE region = ?
+      AND time_bucket_minutes = ?
+      AND timestamp >= ?
+    ",
+);
 
 async fn get_alive_workers(
     session: &Database,
@@ -84,23 +103,12 @@ async fn get_alive_workers(
     let current_bucket = get_time_bucket_minutes(now);
     let cutoff_bucket = get_time_bucket_minutes(cutoff);
 
-    let query = "
-        SELECT process_id,
-               position,
-               timestamp,
-               address
-        FROM workers_heartbeats
-        WHERE region = ?
-          AND time_bucket_minutes = ?
-          AND timestamp >= ?
-    ";
-
     let mut alive_workers = BTreeSet::new();
 
     // Query all buckets from cutoff_bucket to current_bucket (inclusive)
     for bucket in cutoff_bucket..=current_bucket {
-        let rows = session
-            .query_unpaged(query, (region.to_identifier(), bucket, cutoff))
+        let rows = GET_ALIVE_WORKERS_QUERY
+            .execute_unpaged(session, (region.to_identifier(), bucket, cutoff))
             .await?
             .into_rows_result()?;
 
@@ -143,6 +151,16 @@ impl HeartbeatManager {
         session: Arc<Database>,
         git_sha: Option<String>,
     ) -> Result<Self> {
+        INSERT_HEARTBEAT_QUERY
+            .optimistically_prepare(&session)
+            .await?;
+        INSERT_WORKER_METADATA_QUERY
+            .optimistically_prepare(&session)
+            .await?;
+        GET_ALIVE_WORKERS_QUERY
+            .optimistically_prepare(&session)
+            .await?;
+
         insert_worker_metadata(
             &session,
             process_id,

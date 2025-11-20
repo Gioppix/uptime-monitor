@@ -1,4 +1,5 @@
 use crate::database::Database;
+use crate::database::preparer::CachedPreparedStatement;
 use crate::regions::Region;
 use crate::{collab::get_bucket_for_check, worker::Method};
 use anyhow::Result;
@@ -31,34 +32,36 @@ pub struct Check {
     pub data: CheckData,
 }
 
+static GET_CHECK_BY_ID_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT check_id,
+           region,
+           bucket_version,
+           bucket,
+           check_name,
+           url,
+           http_method,
+           check_frequency_seconds,
+           timeout_seconds,
+           expected_status_code,
+           request_headers,
+           request_body,
+           is_enabled,
+           created_at
+    FROM checks
+    WHERE region IN ?
+      AND bucket_version = ?
+      AND bucket = ?
+      AND check_id = ?
+    ",
+);
+
 pub async fn get_check_by_id(session: &Database, check_id: Uuid) -> Result<Option<Check>> {
     let (bucket_version, bucket) = get_bucket_for_check(check_id);
     let all_regions = Region::get_all_region_identifiers();
 
-    let query = "
-        SELECT check_id,
-               region,
-               bucket_version,
-               bucket,
-               check_name,
-               url,
-               http_method,
-               check_frequency_seconds,
-               timeout_seconds,
-               expected_status_code,
-               request_headers,
-               request_body,
-               is_enabled,
-               created_at
-        FROM checks
-        WHERE region IN ?
-          AND bucket_version = ?
-          AND bucket = ?
-          AND check_id = ?
-    ";
-
-    let result = session
-        .query_unpaged(query, (all_regions, bucket_version, bucket, check_id))
+    let result = GET_CHECK_BY_ID_QUERY
+        .execute_unpaged(session, (all_regions, bucket_version, bucket, check_id))
         .await?
         .into_rows_result()?;
 
@@ -153,11 +156,16 @@ pub async fn get_check_by_id(session: &Database, check_id: Uuid) -> Result<Optio
     }
 }
 
-pub async fn create_check(
-    session: &Database,
-    regions: Vec<Region>,
-    data: CheckData,
-) -> Result<Check> {
+static CREATE_CHECK_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    INSERT INTO checks (check_id, region, bucket_version, bucket, check_name, url,
+                        http_method, check_frequency_seconds, timeout_seconds, expected_status_code,
+                        request_headers, request_body, is_enabled, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ",
+);
+
+pub async fn create_check(db: &Database, regions: Vec<Region>, data: CheckData) -> Result<Check> {
     if regions.is_empty() {
         anyhow::bail!("At least one region must be specified");
     }
@@ -165,22 +173,15 @@ pub async fn create_check(
     let check_id = Uuid::new_v4();
     let (bucket_version, bucket) = get_bucket_for_check(check_id);
 
-    let query = "
-        INSERT INTO checks (
-            check_id, region, bucket_version, bucket, check_name, url,
-            http_method, check_frequency_seconds, timeout_seconds, expected_status_code,
-            request_headers, request_body, is_enabled, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ";
-
     // Use batched writes for multiple regions
     let mut batch = Batch::default();
     let mut batch_values = Vec::new();
+    let query = CREATE_CHECK_QUERY.get_prepared_statement(db).await?;
 
     let http_method_str = serde_plain::to_string(&data.http_method)?;
 
     for region in &regions {
-        batch.append_statement(query);
+        batch.append_statement(query.clone());
         batch_values.push((
             check_id,
             region.to_identifier(),
@@ -199,7 +200,7 @@ pub async fn create_check(
         ));
     }
 
-    session.batch(&batch, batch_values).await?;
+    db.batch(&batch, batch_values).await?;
 
     Ok(Check {
         check_id,
@@ -280,21 +281,23 @@ pub async fn update_check(session: &Database, check: Check) -> Result<()> {
     Ok(())
 }
 
+static DELETE_CHECK_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    DELETE
+    FROM checks
+    WHERE region IN ?
+      AND bucket_version = ?
+      AND bucket = ?
+      AND check_id = ?
+    ",
+);
+
 pub async fn delete_check(session: &Database, check_id: Uuid) -> Result<()> {
     let (bucket_version, bucket) = get_bucket_for_check(check_id);
     let all_regions = Region::get_all_region_identifiers();
 
-    let query = "
-        DELETE
-        FROM checks
-        WHERE region IN ?
-          AND bucket_version = ?
-          AND bucket = ?
-          AND check_id = ?
-    ";
-
-    session
-        .query_unpaged(query, (all_regions, bucket_version, bucket, check_id))
+    DELETE_CHECK_QUERY
+        .execute_unpaged(session, (all_regions, bucket_version, bucket, check_id))
         .await?;
 
     Ok(())

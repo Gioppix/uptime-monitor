@@ -1,6 +1,6 @@
 use crate::{
     collab::{NodePosition, RingRange},
-    database::DATABASE_CONCURRENT_REQUESTS,
+    database::{DATABASE_CONCURRENT_REQUESTS, preparer::CachedPreparedStatement},
     regions::Region,
 };
 use anyhow::Result;
@@ -90,6 +90,27 @@ fn parse_service_check_rows(result: QueryRowsResult) -> Result<Vec<ServiceCheck>
     Ok(checks)
 }
 
+static HEALTH_CHECKS_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT check_id,
+           check_name,
+           url,
+           http_method,
+           check_frequency_seconds,
+           timeout_seconds,
+           expected_status_code,
+           request_headers,
+           request_body,
+           is_enabled,
+           created_at,
+           region
+    FROM checks
+    WHERE region = ?
+      AND bucket_version = ?
+      AND bucket = ?
+    ",
+);
+
 pub async fn fetch_health_checks(
     session: &Session,
     region: Region,
@@ -97,35 +118,14 @@ pub async fn fetch_health_checks(
     ring_range: RingRange,
     ring_size: NodePosition,
 ) -> Result<Vec<ServiceCheck>> {
-    let query = "
-        SELECT check_id,
-               check_name,
-               url,
-               http_method,
-               check_frequency_seconds,
-               timeout_seconds,
-               expected_status_code,
-               request_headers,
-               request_body,
-               is_enabled,
-               created_at,
-               region
-        FROM checks
-        WHERE region = ?
-          AND bucket_version = ?
-          AND bucket = ?
-    ";
-
-    let prepared = session.prepare(query).await?;
     let region_str = region.to_identifier();
 
     let buckets = ring_range.iter(ring_size);
 
     let all_checks = stream::iter(buckets)
-        .map(|b| (b, prepared.clone()))
-        .map(|(bucket, prepared)| async move {
-            let result = session
-                .execute_unpaged(&prepared, (region_str, bucket_version, bucket as i32))
+        .map(|bucket| async move {
+            let result = HEALTH_CHECKS_QUERY
+                .execute_unpaged(session, (region_str, bucket_version, bucket as i32))
                 .await?
                 .into_rows_result()?;
 

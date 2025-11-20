@@ -1,3 +1,4 @@
+use crate::database::preparer::CachedPreparedStatement;
 use anyhow::Result;
 use scylla::client::session::Session;
 use serde::{Deserialize, Serialize};
@@ -10,22 +11,24 @@ pub struct CheckAccess {
     pub can_see: bool,
 }
 
+static GET_USER_ACCESS_TO_CHECK_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT can_edit,
+           can_see
+    FROM access_by_check
+    WHERE check_id = ?
+      AND user_id = ?
+    ",
+);
+
 /// Get user's access to a check
 pub async fn get_user_access_to_check(
     session: &Session,
     user_id: Uuid,
     check_id: Uuid,
 ) -> Result<Option<CheckAccess>> {
-    let query = "
-        SELECT can_edit,
-               can_see
-        FROM access_by_check
-        WHERE check_id = ?
-          AND user_id = ?
-    ";
-
-    let result = session
-        .query_unpaged(query, (check_id, user_id))
+    let result = GET_USER_ACCESS_TO_CHECK_QUERY
+        .execute_unpaged(session, (check_id, user_id))
         .await?
         .into_rows_result()?;
 
@@ -39,6 +42,17 @@ pub async fn get_user_access_to_check(
     }
 }
 
+static GRANT_CHECK_ACCESS_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    INSERT INTO access_by_check (check_id,
+                                 user_id,
+                                 user_name,
+                                 can_edit,
+                                 can_see)
+    VALUES (?, ?, ?, ?, ?)
+    ",
+);
+
 /// Grant access to a check for a user
 pub async fn grant_check_access(
     session: &Session,
@@ -47,18 +61,9 @@ pub async fn grant_check_access(
     user_name: &str,
     access: CheckAccess,
 ) -> Result<()> {
-    let query = "
-        INSERT INTO access_by_check (check_id,
-                                     user_id,
-                                     user_name,
-                                     can_edit,
-                                     can_see)
-        VALUES (?, ?, ?, ?, ?)
-    ";
-
-    session
-        .query_unpaged(
-            query,
+    GRANT_CHECK_ACCESS_QUERY
+        .execute_unpaged(
+            session,
             (
                 check_id,
                 user_id,
@@ -72,18 +77,20 @@ pub async fn grant_check_access(
     Ok(())
 }
 
+static GET_USER_CHECKS_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT check_id,
+           can_edit,
+           can_see
+    FROM access_by_check
+    WHERE user_id = ?
+    ",
+);
+
 /// Get all checks a user has access to
 pub async fn get_user_checks(session: &Session, user_id: Uuid) -> Result<Vec<(Uuid, CheckAccess)>> {
-    let query = "
-        SELECT check_id,
-               can_edit,
-               can_see
-        FROM access_by_check
-        WHERE user_id = ?
-    ";
-
-    let result = session
-        .query_unpaged(query, (user_id,))
+    let result = GET_USER_CHECKS_QUERY
+        .execute_unpaged(session, (user_id,))
         .await?
         .into_rows_result()?;
 
