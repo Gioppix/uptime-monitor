@@ -410,6 +410,7 @@ dependencies = [
  "strum",
  "tokio",
  "tokio-stream",
+ "url",
  "utoipa",
  "utoipa-actix-web",
  "utoipa-swagger-ui",

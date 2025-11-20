@@ -35,7 +35,7 @@ pub async fn execute_check(client: &Client, check: &ServiceCheck) -> Result<Chec
     let check_started_at = Utc::now();
 
     let mut request = client
-        .request(method, &check.url)
+        .request(method, check.url.clone())
         .timeout(Duration::from_secs(check.timeout_seconds as u64));
 
     for (key, value) in &check.request_headers {
@@ -111,7 +111,7 @@ mod tests {
             check_id: Uuid::new_v4(),
             region: Region::UsEast,
             check_name: String::from("test_check"),
-            url: server.url("/"),
+            url: server.url("/").parse().unwrap(),
             http_method: Method::Get,
             check_frequency_seconds: 60,
             timeout_seconds: 30,
@@ -147,7 +147,7 @@ mod tests {
             check_id: Uuid::new_v4(),
             region: Region::UsEast,
             check_name: String::from("test_check"),
-            url: server.url("/slow"),
+            url: server.url("/slow").parse().unwrap(),
             http_method: Method::Get,
             check_frequency_seconds: 60,
             timeout_seconds: 1,

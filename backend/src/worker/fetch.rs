@@ -11,6 +11,7 @@ use log::{error, warn};
 use scylla::{client::session::Session, response::query_result::QueryRowsResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use url::Url;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -24,12 +25,13 @@ pub enum Method {
     Head,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ServiceCheck {
     pub check_id: Uuid,
     pub region: Region,
     pub check_name: String,
-    pub url: String,
+    #[serde(deserialize_with = "deserialize_url")]
+    pub url: Url,
     pub http_method: Method,
     pub check_frequency_seconds: i32,
     pub timeout_seconds: i32,
@@ -78,7 +80,7 @@ fn parse_service_check_rows(result: QueryRowsResult) -> Result<Vec<ServiceCheck>
                 check_id,
                 region: region_str.parse()?,
                 check_name,
-                url,
+                url: url.parse()?,
                 http_method: serde_plain::from_str(&http_method)?,
                 check_frequency_seconds,
                 timeout_seconds,
@@ -174,7 +176,7 @@ impl ServiceCheck {
             check_id: Uuid::new_v4(),
             region: Region::UsEast,
             check_name: "Example Health Check".to_string(),
-            url: "https://example.com/health".to_string(),
+            url: "https://example.com/health".parse().unwrap(),
             http_method: Method::Get,
             check_frequency_seconds: 60,
             timeout_seconds: 30,
@@ -183,6 +185,28 @@ impl ServiceCheck {
             request_body: None,
             is_enabled: true,
             created_at: Utc::now(),
+        }
+    }
+}
+
+fn deserialize_url<'de, D>(deserializer: D) -> Result<Url, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    ServiceCheck::parse_url(&s).map_err(serde::de::Error::custom)
+}
+
+impl ServiceCheck {
+    fn parse_url(url_str: &str) -> Result<Url, anyhow::Error> {
+        let url: Url = url_str.parse()?;
+
+        match url.scheme() {
+            "http" | "https" => Ok(url),
+            scheme => anyhow::bail!(
+                "Invalid URL scheme: {}. Only http and https are allowed",
+                scheme
+            ),
         }
     }
 }
@@ -274,6 +298,25 @@ mod tests {
     fn test_method_serialization() -> Result<()> {
         // Test serialization
         assert_eq!(serde_plain::to_string(&Method::Get)?, "GET");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_url_deserialization() -> Result<()> {
+        ServiceCheck::parse_url("http://example.com")?;
+        ServiceCheck::parse_url("https://api.example.com/v1/health")?;
+        ServiceCheck::parse_url("http://localhost:8080/status")?;
+        ServiceCheck::parse_url("https://example.com/search?q=test&limit=10")?;
+        ServiceCheck::parse_url("https://docs.example.com/page#section")?;
+
+        assert!(ServiceCheck::parse_url("ftp://example.com").is_err());
+        assert!(ServiceCheck::parse_url("ws://example.com").is_err());
+        assert!(ServiceCheck::parse_url("file:///etc/passwd").is_err());
+        assert!(ServiceCheck::parse_url("javascript:alert(1)").is_err());
+
+        assert!(ServiceCheck::parse_url("not a url").is_err());
+        assert!(ServiceCheck::parse_url("").is_err());
 
         Ok(())
     }
