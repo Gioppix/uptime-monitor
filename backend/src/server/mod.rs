@@ -6,7 +6,7 @@ mod users;
 
 use crate::{database::Database, env_str, server::health::*};
 use actix_cors::Cors;
-use actix_web::{App, HttpServer, web::Data};
+use actix_web::{App, HttpServer, http::Method, web::Data};
 use std::{net::TcpListener, sync::Arc};
 use utoipa::OpenApi;
 use utoipa_actix_web::AppExt;
@@ -28,7 +28,12 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
         let cors = Cors::default()
             .supports_credentials()
             .allowed_origin(FRONTEND_PUBLIC_URL)
-            .allowed_methods(vec!["GET", "POST"])
+            .allowed_methods(vec![
+                Method::GET,
+                Method::POST,
+                Method::PATCH,
+                Method::DELETE,
+            ])
             .allowed_headers(vec!["Content-Type", "Authorization"])
             .max_age(60 * 60 * 12);
 

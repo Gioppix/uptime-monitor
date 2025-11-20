@@ -10,4 +10,14 @@ declare global {
     }
 }
 
+// https://github.com/sindresorhus/type-fest/issues/649
+type ObjectEntry<BaseType> = [keyof BaseType, BaseType[keyof BaseType]];
+type ObjectEntries<BaseType> = Array<ObjectEntry<BaseType>>;
+
+declare global {
+    interface ObjectConstructor {
+        entries<T extends object>(o: T): ObjectEntries<T>;
+    }
+}
+
 export {};

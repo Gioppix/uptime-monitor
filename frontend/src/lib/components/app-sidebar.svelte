@@ -9,7 +9,7 @@
     import LogOut from '@lucide/svelte/icons/log-out';
     import LogIn from '@lucide/svelte/icons/log-in';
     import UserPlus from '@lucide/svelte/icons/user-plus';
-    import PanelLeft from '@lucide/svelte/icons/panel-left';
+
     import ActivityIcon from '@lucide/svelte/icons/activity';
     import EllipsisVertical from '@lucide/svelte/icons/ellipsis-vertical';
 

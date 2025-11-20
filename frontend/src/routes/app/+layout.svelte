@@ -7,7 +7,9 @@
 
 <Sidebar.Provider>
     <AppSidebar user={data.user} />
-    <main>
-        {@render children()}
-    </main>
+    <Sidebar.Inset>
+        <main class="flex flex-1 flex-col">
+            {@render children()}
+        </main>
+    </Sidebar.Inset>
 </Sidebar.Provider>
