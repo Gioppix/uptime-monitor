@@ -42,8 +42,10 @@ pub async fn execute_check(client: &Client, check: &ServiceCheck) -> Result<Chec
         request = request.header(key, value);
     }
 
-    if !check.request_body.is_empty() {
-        request = request.body(check.request_body.clone());
+    if let Some(body) = &check.request_body
+        && !body.is_empty()
+    {
+        request = request.body(body.clone());
     }
 
     let result = request.send().await;
@@ -115,7 +117,7 @@ mod tests {
             timeout_seconds: 30,
             expected_status_code: 200,
             request_headers: HashMap::new(),
-            request_body: String::new(),
+            request_body: None,
             is_enabled: true,
             created_at: Utc::now(),
         };
@@ -151,7 +153,7 @@ mod tests {
             timeout_seconds: 1,
             expected_status_code: 200,
             request_headers: HashMap::new(),
-            request_body: String::new(),
+            request_body: None,
             is_enabled: true,
             created_at: Utc::now(),
         };

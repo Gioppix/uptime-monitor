@@ -6,6 +6,8 @@ use crate::{
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use futures::{StreamExt, stream};
+use itertools::Itertools;
+use log::{error, warn};
 use scylla::{client::session::Session, response::query_result::QueryRowsResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -33,7 +35,7 @@ pub struct ServiceCheck {
     pub timeout_seconds: i32,
     pub expected_status_code: i32,
     pub request_headers: std::collections::HashMap<String, String>,
-    pub request_body: String,
+    pub request_body: Option<String>,
     pub is_enabled: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -48,43 +50,62 @@ fn parse_service_check_rows(result: QueryRowsResult) -> Result<Vec<ServiceCheck>
         i32,
         i32,
         HashMap<String, String>,
-        String,
+        Option<String>,
         bool,
         DateTime<Utc>,
         String,
     )>()?;
 
-    let mut checks = Vec::new();
-    for row in rows {
-        let (
-            check_id,
-            check_name,
-            url,
-            http_method,
-            check_frequency_seconds,
-            timeout_seconds,
-            expected_status_code,
-            request_headers,
-            request_body,
-            is_enabled,
-            created_at,
-            region_str,
-        ) = row?;
+    let maybe_checks: Vec<Result<_>> = rows
+        .into_iter()
+        .map(|row| {
+            let (
+                check_id,
+                check_name,
+                url,
+                http_method,
+                check_frequency_seconds,
+                timeout_seconds,
+                expected_status_code,
+                request_headers,
+                request_body,
+                is_enabled,
+                created_at,
+                region_str,
+            ) = row?;
 
-        checks.push(ServiceCheck {
-            check_id,
-            region: region_str.parse()?,
-            check_name,
-            url,
-            http_method: serde_plain::from_str(&http_method)?,
-            check_frequency_seconds,
-            timeout_seconds,
-            expected_status_code,
-            request_headers,
-            request_body,
-            is_enabled,
-            created_at,
-        });
+            let check = ServiceCheck {
+                check_id,
+                region: region_str.parse()?,
+                check_name,
+                url,
+                http_method: serde_plain::from_str(&http_method)?,
+                check_frequency_seconds,
+                timeout_seconds,
+                expected_status_code,
+                request_headers,
+                request_body,
+                is_enabled,
+                created_at,
+            };
+
+            Ok(check)
+        })
+        .collect();
+
+    let (checks, errors): (Vec<_>, Vec<_>) = maybe_checks.into_iter().partition_result();
+
+    if !errors.is_empty() {
+        error!(
+            "Failed to parse [{}] checks. First 3 errors: {}",
+            errors.len(),
+            errors
+                .iter()
+                .take(3)
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     Ok(checks)
@@ -129,6 +150,7 @@ pub async fn fetch_health_checks(
                 .await?
                 .into_rows_result()?;
 
+            warn!("Fetching bucket {bucket}");
             parse_service_check_rows(result)
         })
         .buffer_unordered(DATABASE_CONCURRENT_REQUESTS as usize)
@@ -158,7 +180,7 @@ impl ServiceCheck {
             timeout_seconds: 30,
             expected_status_code: 200,
             request_headers: HashMap::new(),
-            request_body: String::new(),
+            request_body: None,
             is_enabled: true,
             created_at: Utc::now(),
         }
@@ -220,6 +242,30 @@ mod tests {
             checks[0].check_id,
             uuid!("00000000-0000-0000-0000-000000000004")
         );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetch_health_checks_with_malformed() -> Result<()> {
+        let (session, _keyspace) = create_test_database(Some(FIXTURES)).await?;
+
+        // Fetch checks from EuWest region which has 4 checks, one with empty URL
+        // Should return only the 3 valid checks without erroring
+        let checks = fetch_health_checks(
+            &session,
+            Region::EuWest,
+            1,
+            RingRange { start: 0, end: 4 },
+            10,
+        )
+        .await?;
+
+        let check_ids: Vec<_> = checks.iter().map(|c| c.check_id).collect();
+        assert!(check_ids.contains(&uuid!("00000000-0000-0000-0000-000000000101")));
+        assert!(check_ids.contains(&uuid!("00000000-0000-0000-0000-000000000102")));
+        assert!(check_ids.contains(&uuid!("00000000-0000-0000-0000-000000000104")));
+        assert!(!check_ids.contains(&uuid!("00000000-0000-0000-0000-000000000103"))); // malformed
 
         Ok(())
     }

@@ -398,6 +398,7 @@ dependencies = [
  "get_if_addrs",
  "httpmock",
  "include_dir",
+ "itertools",
  "log",
  "rand",
  "rand_distr",
