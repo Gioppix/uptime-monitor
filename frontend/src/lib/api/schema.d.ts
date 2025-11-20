@@ -4,14 +4,14 @@
  */
 
 export interface paths {
-    '/': {
+    "/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations['home'];
+        get: operations["home"];
         put?: never;
         post?: never;
         delete?: never;
@@ -20,7 +20,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    '/checks/': {
+    "/checks/": {
         parameters: {
             query?: never;
             header?: never;
@@ -31,20 +31,20 @@ export interface paths {
          * List my checks
          * @description Lists all checks the authenticated user has access to
          */
-        get: operations['listMyChecks'];
+        get: operations["listMyChecks"];
         put?: never;
         /**
          * Create a new check
          * @description Creates a new check across multiple regions. The creator automatically gets full access (can_edit and can_see).
          */
-        post: operations['createCheck'];
+        post: operations["createCheck"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    '/checks/{check_id}': {
+    "/checks/{check_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -55,31 +55,31 @@ export interface paths {
          * Get check by ID
          * @description Retrieves a check by its ID. User must have access to view the check.
          */
-        get: operations['getCheck'];
+        get: operations["getCheck"];
         put?: never;
         post?: never;
         /**
          * Delete check
          * @description Deletes a check from all regions. User must have edit access to the check.
          */
-        delete: operations['deleteCheck'];
+        delete: operations["deleteCheck"];
         options?: never;
         head?: never;
         /**
          * Update check
          * @description Updates a check. User must have edit access to the check.
          */
-        patch: operations['updateCheck'];
+        patch: operations["updateCheck"];
         trace?: never;
     };
-    '/health': {
+    "/health": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations['health'];
+        get: operations["health"];
         put?: never;
         post?: never;
         delete?: never;
@@ -88,7 +88,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    '/users/info/{user_id}': {
+    "/users/info/{user_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -99,7 +99,7 @@ export interface paths {
          * Get user by ID
          * @description Retrieves a user's public information by their unique identifier
          */
-        get: operations['getUser'];
+        get: operations["getUser"];
         put?: never;
         post?: never;
         delete?: never;
@@ -108,7 +108,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    '/users/login': {
+    "/users/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -121,14 +121,14 @@ export interface paths {
          * Login user
          * @description Authenticates a user and establishes a session
          */
-        post: operations['loginUser'];
+        post: operations["loginUser"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    '/users/logout': {
+    "/users/logout": {
         parameters: {
             query?: never;
             header?: never;
@@ -141,14 +141,14 @@ export interface paths {
          * Logout user
          * @description Logs out the current user and invalidates their session
          */
-        post: operations['logoutUser'];
+        post: operations["logoutUser"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    '/users/me': {
+    "/users/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -159,7 +159,7 @@ export interface paths {
          * Get current authenticated user
          * @description Retrieves the currently authenticated user's public information. Returns null if not authenticated.
          */
-        get: operations['getCurrentUser'];
+        get: operations["getCurrentUser"];
         put?: never;
         post?: never;
         delete?: never;
@@ -168,7 +168,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    '/users/new': {
+    "/users/new": {
         parameters: {
             query?: never;
             header?: never;
@@ -181,7 +181,7 @@ export interface paths {
          * Create a new user
          * @description Creates a new user account and establishes a session
          */
-        post: operations['createUser'];
+        post: operations["createUser"];
         delete?: never;
         options?: never;
         head?: never;
@@ -192,10 +192,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        Check: components['schemas']['CheckData'] & {
+        Check: components["schemas"]["CheckData"] & {
             /** Format: uuid */
             check_id: string;
-            regions: components['schemas']['Region'][];
+            regions: components["schemas"]["Region"][];
         };
         CheckAccess: {
             can_edit: boolean;
@@ -209,7 +209,7 @@ export interface components {
             created_at: string;
             /** Format: int32 */
             expected_status_code: number;
-            http_method: components['schemas']['Method'];
+            http_method: components["schemas"]["Method"];
             is_enabled: boolean;
             request_body?: string | null;
             request_headers: {
@@ -219,7 +219,7 @@ export interface components {
             timeout_seconds: number;
             url: string;
         };
-        CheckWithAccess: components['schemas']['Check'] & components['schemas']['CheckAccess'];
+        CheckWithAccess: components["schemas"]["Check"] & components["schemas"]["CheckAccess"];
         CreateUserRequest: {
             password: string;
             username: string;
@@ -229,14 +229,14 @@ export interface components {
             username: string;
         };
         /** @enum {string} */
-        Method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
+        Method: "GET" | "POST" | "PUT" | "DELETE" | "HEAD";
         PublicUser: {
             /** Format: uuid */
             user_id: string;
             username: string;
         };
         /** @enum {string} */
-        Region: 'UsWest' | 'UsEast' | 'EuWest' | 'SoutheastAsia';
+        Region: "UsWest" | "UsEast" | "EuWest" | "SoutheastAsia";
     };
     responses: never;
     parameters: never;
@@ -279,7 +279,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    'application/json': components['schemas']['CheckWithAccess'][];
+                    "application/json": components["schemas"]["CheckWithAccess"][];
                 };
             };
             /** @description Unauthorized - authentication required */
@@ -307,7 +307,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                'application/json': components['schemas']['Check'];
+                "application/json": components["schemas"]["Check"];
             };
         };
         responses: {
@@ -317,7 +317,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    'application/json': components['schemas']['Check'];
+                    "application/json": components["schemas"]["Check"];
                 };
             };
             /** @description Unauthorized - authentication required */
@@ -353,7 +353,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    'application/json': components['schemas']['CheckWithAccess'];
+                    "application/json": components["schemas"]["CheckWithAccess"];
                 };
             };
             /** @description Unauthorized - authentication required */
@@ -445,7 +445,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                'application/json': components['schemas']['Check'];
+                "application/json": components["schemas"]["Check"];
             };
         };
         responses: {
@@ -455,7 +455,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    'application/json': components['schemas']['Check'];
+                    "application/json": components["schemas"]["Check"];
                 };
             };
             /** @description Unauthorized - authentication required */
@@ -523,7 +523,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    'application/json': components['schemas']['PublicUser'];
+                    "application/json": components["schemas"]["PublicUser"];
                 };
             };
             /** @description User not found */
@@ -551,7 +551,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                'application/json': components['schemas']['LoginRequest'];
+                "application/json": components["schemas"]["LoginRequest"];
             };
         };
         responses: {
@@ -561,7 +561,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    'application/json': components['schemas']['PublicUser'];
+                    "application/json": components["schemas"]["PublicUser"];
                 };
             };
             /** @description Invalid credentials */
@@ -627,7 +627,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    'application/json': null | components['schemas']['PublicUser'];
+                    "application/json": null | components["schemas"]["PublicUser"];
                 };
             };
             /** @description Internal server error */
@@ -648,7 +648,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                'application/json': components['schemas']['CreateUserRequest'];
+                "application/json": components["schemas"]["CreateUserRequest"];
             };
         };
         responses: {
@@ -658,7 +658,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    'application/json': components['schemas']['PublicUser'];
+                    "application/json": components["schemas"]["PublicUser"];
                 };
             };
             /** @description Internal server error */
