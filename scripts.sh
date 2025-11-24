@@ -70,6 +70,27 @@ start_cassandra() {
     cassandra:5
 }
 
+start_scylla() {
+  echo "Starting ScyllaDB container from custom Dockerfile..."
+  docker network create scylla-net 2>/dev/null || true
+  docker build -t scylla-custom -f database/Dockerfile .
+  docker run -d \
+    --name scylla1 \
+    --network scylla-net \
+    -p 9042:9042 \
+    -p 10000:10000 \
+    -v scylla1:/var/lib/scylla \
+    -e SCYLLA_CLUSTER_NAME="TestScyllaCluster" \
+    -e SCYLLA_LISTEN_ADDRESS="scylla1" \
+    -e SCYLLA_BROADCAST_ADDRESS="scylla1" \
+    -e SCYLLA_RPC_ADDRESS="scylla1" \
+    -e SCYLLA_BROADCAST_RPC_ADDRESS="scylla1" \
+    -e SCYLLA_SEEDS="scylla1" \
+    -e SCYLLA_DEVELOPER_MODE="1" \
+    -e EXTRA_ARGS="--reactor-backend=epoll --smp=1" \
+    scylla-custom
+}
+
 reset_dev_database() {
   echo "Resetting development database..."
 

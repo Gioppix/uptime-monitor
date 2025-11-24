@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS access_by_check
     PRIMARY KEY (check_id, user_id)
 );
 
-CREATE INDEX IF NOT EXISTS access_by_check_by_user ON access_by_check (user_id) USING 'SAI';
+CREATE INDEX IF NOT EXISTS access_by_check_by_user ON access_by_check (user_id);
 
 CREATE TABLE IF NOT EXISTS check_results
 (
