@@ -9,8 +9,8 @@ RUN microdnf --setopt=tsflags=nodocs -y update
 RUN microdnf --setopt=tsflags=nodocs -y install gettext
 RUN microdnf clean all
 
-COPY wrapper.sh /usr/local/bin/wrapper.sh
-COPY scylla.yaml /etc/scylla/scylla.template.yaml
+COPY database/wrapper.sh /usr/local/bin/wrapper.sh
+COPY database/scylla.yaml /etc/scylla/scylla.template.yaml
 
 RUN chmod +x /usr/local/bin/wrapper.sh
 
