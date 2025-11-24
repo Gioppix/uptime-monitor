@@ -26,5 +26,4 @@ fi
 	--overprovisioned "$OVERPROV" \
 	--api-address "$API_ADDR" \
 	--listen-address "$LISTEN_ADDR" \
-	--broadcast-rpc-address "255.255.255.0" \
 	"$@"
