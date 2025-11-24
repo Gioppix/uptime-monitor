@@ -5,6 +5,6 @@ seed_provider:
     - class_name: org.apache.cassandra.locator.SimpleSeedProvider
       parameters:
           - seeds: "${SEEDS}"
-# enable_ipv6_dns_lookup: true
+enable_ipv6_dns_lookup: true
 auth_superuser_name: "${AUTH_SUPERUSER_NAME}"
 auth_superuser_salted_password: "${AUTH_SUPERUSER_SHA512_PASSWORD}"
