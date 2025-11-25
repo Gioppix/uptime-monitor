@@ -164,7 +164,7 @@ impl Worker {
 
                 tokio::spawn(async move {
                     let guard = semaphore_clone.acquire().await.expect("semaphore closed");
-                    let result = execute_check(&client_clone, &task).await;
+                    let result = execute_check(&client_clone, &task, DEV_MODE).await;
                     drop(guard);
 
                     let result = result.and_then(|r| save_manager_clone.save(r));
