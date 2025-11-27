@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+    scylladb:
+        image: scylladb/scylla:2025.2
+        container_name: uptime-scylladb
+        network_mode: host
+        command:
+            - --smp=2
+            - --reserve-memory=500M
+            - --listen-address=${listen_address}
+            - --rpc-address=${rpc_address}
+            - --broadcast-address=${broadcast_address}
+            - --broadcast-rpc-address=${broadcast_rpc_address}
+            - --seed-provider-parameters=seeds=${seeds}
+            - --overprovisioned=0
+        healthcheck:
+            test: ["CMD-SHELL", "cqlsh -e 'SHOW VERSION' || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+        restart: unless-stopped
+        volumes:
+            - /data:/var/lib/scylla
+            - ./scylla.yaml:/etc/scylla/scylla.yaml:ro

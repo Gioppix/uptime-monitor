@@ -28,6 +28,21 @@ fn split_to_statements(content: &str) -> impl Iterator<Item = &str> {
         .filter(|s| !s.is_empty())
 }
 
+/// Runs all migrations on the provided session.
+/// Expects the session to have the keyspace already set.
+pub async fn run_migrations(session: &Session) -> Result<()> {
+    let migration_files = get_migrations();
+    for (file, content) in migration_files {
+        for statement in split_to_statements(content) {
+            session
+                .query_unpaged(statement, &[])
+                .await
+                .map_err(|e| anyhow::anyhow!("Migration failed for file {}: {}", file, e))?;
+        }
+    }
+    Ok(())
+}
+
 // Test database setup utilities
 //
 // Returns a `Session` and the dedicated `keyspace`
@@ -53,15 +68,7 @@ pub async fn create_test_database(fixtures: Option<&str>) -> Result<(Session, St
     session.use_keyspace(&keyspace_name, true).await?;
 
     // Run migrations
-    let migration_files = get_migrations();
-    for (file, content) in migration_files {
-        for statement in split_to_statements(content) {
-            session
-                .query_unpaged(statement, &[])
-                .await
-                .map_err(|e| anyhow::anyhow!("Migration failed for file {}: {}", file, e))?;
-        }
-    }
+    run_migrations(&session).await?;
 
     // Run fixtures if provided
     if let Some(fixtures_content) = fixtures {
@@ -111,6 +118,33 @@ mod tests {
         }
 
         println!("Cleanup complete");
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_connect_to_specific_node() -> Result<()> {
+        let database_urls = vec!["46.62.224.243:8443"];
+        let session = connect_db_optional_ks(&database_urls, None).await?;
+
+        let keyspace_name = "default_keyspace";
+
+        // Create the keyspace with replication factor 3
+        session
+            .query_unpaged(
+                format!(
+                    "CREATE KEYSPACE IF NOT EXISTS {} WITH REPLICATION = {{'class': 'SimpleStrategy', 'replication_factor': 3}}",
+                    keyspace_name
+                ),
+                &[],
+            )
+            .await?;
+
+        // Use the keyspace
+        session.use_keyspace(keyspace_name, true).await?;
+
+        // Run migrations
+        run_migrations(&session).await?;
         Ok(())
     }
 }

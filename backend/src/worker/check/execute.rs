@@ -107,15 +107,17 @@ pub async fn execute_check(
     };
 
     // Validate URL and transform to use IP address
-    let (ip_url, original_host) = validate_and_transform_url(&check.url, accept_local)
+    let (_ip_url, original_host) = validate_and_transform_url(&check.url, accept_local)
         .await
         .context("URL validation failed")?;
 
     let start = Instant::now();
     let check_started_at = Utc::now();
 
+    // TODO: use `ip_url` or fix
+    // code: -67843, message: "The certificate was not trusted."
     let mut request = client
-        .request(method, ip_url.as_str())
+        .request(method, check.url.clone())
         .header(header::HOST, original_host) // Set original host for virtual hosting and TLS/SNI
         .timeout(Duration::from_secs(check.timeout_seconds as u64));
 
@@ -146,6 +148,8 @@ pub async fn execute_check(
 
             if !genuine_fail {
                 bail!("health check error");
+            } else {
+                trace!("Service check encountered error: {:?}", error);
             }
 
             // This never matches the expected code
@@ -163,6 +167,11 @@ pub async fn execute_check(
         response_body_fetched: false,
         response_body: None,
     };
+
+    trace!(
+        "Health check completed: {} - status: {:?}, matches: {}, time: {}μs",
+        check.check_name, status_code, matches_expected, response_time_micros
+    );
 
     Ok(result)
 }
