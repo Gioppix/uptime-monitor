@@ -16,7 +16,7 @@ mod network;
 pub mod range_manager;
 
 use crate::{
-    CURRENT_BUCKET_VERSION, CURRENT_BUCKETS_COUNT,
+    eager_env,
     collab::{
         assignment::choose_new_node_position,
         heartbeat::{HeartbeatManager, HeartbeatManagerTrait},
@@ -38,7 +38,7 @@ pub async fn decide_position(
 }
 
 pub fn get_bucket_for_check(check_id: Uuid) -> (i16, i32) {
-    let bucket = (check_id.as_u128() % (CURRENT_BUCKETS_COUNT as u128)) as i32;
+    let bucket = (check_id.as_u128() % (*eager_env::CURRENT_BUCKETS_COUNT as u128)) as i32;
 
-    (CURRENT_BUCKET_VERSION as i16, bucket)
+    (*eager_env::CURRENT_BUCKET_VERSION as i16, bucket)
 }

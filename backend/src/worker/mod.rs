@@ -2,10 +2,9 @@ mod check;
 mod fetch;
 
 use crate::{
-    DEV_MODE,
+    eager_env,
     collab::{NodePosition, RingRange},
     database::Database,
-    env_u32,
     regions::Region,
     worker::{
         check::{execute::execute_check, save::ResultSaveManager},
@@ -31,7 +30,6 @@ use tokio::{
 
 pub use fetch::Method;
 
-const MAX_CONCURRENT_HEALTH_CHECKS: u32 = env_u32!("MAX_CONCURRENT_HEALTH_CHECKS");
 const SCHEDULING_TOLERANCE_MILLIS: u64 = 100;
 
 pub struct Task {
@@ -103,7 +101,7 @@ impl Worker {
                 bucket_count,
             },
             next_executions: Default::default(),
-            semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_HEALTH_CHECKS as usize)),
+            semaphore: Arc::new(Semaphore::new(*eager_env::MAX_CONCURRENT_HEALTH_CHECKS)),
             http_client: reqwest::Client::new(),
             save_manager: ResultSaveManager::new(db, region).await?,
         };
@@ -164,7 +162,7 @@ impl Worker {
 
                 tokio::spawn(async move {
                     let guard = semaphore_clone.acquire().await.expect("semaphore closed");
-                    let result = execute_check(&client_clone, &task, DEV_MODE).await;
+                    let result = execute_check(&client_clone, &task, *eager_env::DEV_MODE).await;
                     drop(guard);
 
                     let result = result.and_then(|r| save_manager_clone.save(r));
@@ -235,7 +233,7 @@ impl Worker {
                 Some(next_execution) => next_execution.saturating_duration_since(Instant::now()),
                 None => {
                     // In dev mode, "disable" checking by default to spot bugs
-                    let default_duration = if DEV_MODE { 100000 } else { 1 };
+                    let default_duration = if *eager_env::DEV_MODE { 100000 } else { 1 };
                     Duration::from_secs(default_duration)
                 }
             };

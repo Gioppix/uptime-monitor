@@ -1,6 +1,5 @@
-use crate::database::DATABASE_CONCURRENT_REQUESTS;
 use crate::database::preparer::CachedPreparedStatement;
-use crate::{database::Database, regions::Region, worker::check::execute::CheckResult};
+use crate::{database::Database, eager_env, regions::Region, worker::check::execute::CheckResult};
 use anyhow::Result;
 use futures::StreamExt;
 use std::sync::Arc;
@@ -49,7 +48,7 @@ impl ResultSaveManager {
         region: Region,
     ) {
         UnboundedReceiverStream::new(receiver)
-            .for_each_concurrent(DATABASE_CONCURRENT_REQUESTS as usize, |result| {
+            .for_each_concurrent(*eager_env::DATABASE_CONCURRENT_REQUESTS, |result| {
                 let db = db.clone();
                 async move {
                     if let Err(e) = Self::save_single(&db, result, region).await {

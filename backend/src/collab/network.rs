@@ -1,4 +1,4 @@
-use crate::PORT;
+use crate::eager_env;
 use get_if_addrs::{IfAddr, get_if_addrs};
 use std::net::{IpAddr, SocketAddr};
 
@@ -28,7 +28,7 @@ pub fn get_first_network_address() -> Option<SocketAddr> {
         };
 
         if is_acceptable_address(&ip_addr) {
-            return Some(SocketAddr::new(ip_addr, PORT));
+            return Some(SocketAddr::new(ip_addr, *eager_env::PORT));
         }
     }
 

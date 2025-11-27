@@ -1,6 +1,7 @@
 use crate::{
     collab::{NodePosition, RingRange},
-    database::{DATABASE_CONCURRENT_REQUESTS, preparer::CachedPreparedStatement},
+    database::preparer::CachedPreparedStatement,
+    eager_env,
     regions::Region,
 };
 use anyhow::Result;
@@ -155,7 +156,7 @@ pub async fn fetch_health_checks(
             warn!("Fetching bucket {bucket}");
             parse_service_check_rows(result)
         })
-        .buffer_unordered(DATABASE_CONCURRENT_REQUESTS as usize)
+        .buffer_unordered(*eager_env::DATABASE_CONCURRENT_REQUESTS)
         .collect::<Vec<_>>()
         .await
         .into_iter()

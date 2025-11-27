@@ -1,5 +1,4 @@
-use crate::database::preparer::CachedPreparedStatement;
-use crate::env_u32;
+use crate::{database::preparer::CachedPreparedStatement, eager_env};
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use scylla::client::session::Session;
@@ -12,8 +11,6 @@ pub struct UserSession {
     pub expires_at: Option<DateTime<Utc>>,
     logged_out: bool,
 }
-
-const SESSION_DURATION_DAYS: u32 = env_u32!("SESSION_DURATION_DAYS");
 
 static CREATE_SESSION_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
     "
@@ -31,7 +28,7 @@ pub async fn create_session(
     session_id: Uuid,
 ) -> Result<UserSession> {
     let now = Utc::now();
-    let expires_at = now + Duration::days(SESSION_DURATION_DAYS as i64);
+    let expires_at = now + Duration::days(*eager_env::SESSION_DURATION_DAYS);
 
     CREATE_SESSION_QUERY
         .execute_unpaged(db_session, (session_id, user_id, now, expires_at))

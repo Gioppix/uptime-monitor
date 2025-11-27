@@ -4,15 +4,13 @@ mod health;
 mod openapi;
 mod users;
 
-use crate::{database::Database, env_str, server::health::*};
+use crate::{database::Database, eager_env, server::health::*};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, http::Method, web::Data};
 use std::{net::TcpListener, sync::Arc};
 use utoipa::OpenApi;
 use utoipa_actix_web::AppExt;
 use utoipa_swagger_ui::SwaggerUi;
-
-const FRONTEND_PUBLIC_URL: &str = env_str!("FRONTEND_PUBLIC_URL");
 
 pub type AppState = Arc<AppStateInner>;
 
@@ -27,7 +25,7 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
     HttpServer::new(move || {
         let cors = Cors::default()
             .supports_credentials()
-            .allowed_origin(FRONTEND_PUBLIC_URL)
+            .allowed_origin(eager_env::FRONTEND_PUBLIC_URL.as_str())
             .allowed_methods(vec![
                 Method::GET,
                 Method::POST,

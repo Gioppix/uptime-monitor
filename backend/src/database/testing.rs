@@ -1,5 +1,5 @@
 use crate::database::connect_db_optional_ks;
-use crate::{DATABASE_NODE_URLS, database::parse_database_urls};
+use crate::database::parse_database_urls;
 use anyhow::Result;
 use include_dir::{Dir, include_dir};
 use rand::{Rng, rng};
@@ -48,9 +48,11 @@ pub async fn run_migrations(session: &Session) -> Result<()> {
 // Returns a `Session` and the dedicated `keyspace`
 #[cfg(test)]
 pub async fn create_test_database(fixtures: Option<&str>) -> Result<(Session, String)> {
+    use crate::eager_env::DATABASE_NODE_URLS;
+
     let keyspace_name = format!("test_ks_{}", rng().random::<u32>());
 
-    let database_urls = parse_database_urls(DATABASE_NODE_URLS);
+    let database_urls = parse_database_urls(DATABASE_NODE_URLS.as_str());
     let session = connect_db_optional_ks(&database_urls, None).await?;
 
     // Create the keyspace
@@ -86,6 +88,7 @@ pub async fn create_test_database(fixtures: Option<&str>) -> Result<(Session, St
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::eager_env::DATABASE_NODE_URLS;
 
     #[tokio::test]
     #[ignore]
@@ -99,7 +102,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn cleanup_test_keyspaces() -> Result<()> {
-        let database_urls = parse_database_urls(DATABASE_NODE_URLS);
+        let database_urls = parse_database_urls(DATABASE_NODE_URLS.as_str());
         let session = connect_db_optional_ks(&database_urls, None).await?;
 
         let rows = session
