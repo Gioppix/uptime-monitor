@@ -8,10 +8,9 @@ use utoipa::ToSchema;
     Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, EnumIter, Serialize, Deserialize, ToSchema,
 )]
 pub enum Region {
-    UsWest,
-    UsEast,
-    EuWest,
-    SoutheastAsia,
+    Fsn1, // Falkenstein, Germany
+    Hel1, // Helsinki, Finland
+    Nbg1, // Nuremberg, Germany
 }
 
 impl FromStr for Region {
@@ -25,19 +24,17 @@ impl FromStr for Region {
 impl Region {
     pub fn to_identifier(self) -> &'static str {
         match self {
-            Region::UsWest => "us-west2",
-            Region::UsEast => "us-east4-eqdc4a",
-            Region::EuWest => "europe-west4-drams3a",
-            Region::SoutheastAsia => "asia-southeast1-eqsg3a",
+            Region::Fsn1 => "fsn1",
+            Region::Hel1 => "hel1",
+            Region::Nbg1 => "nbg1",
         }
     }
 
     pub fn from_identifier(identifier: &str) -> anyhow::Result<Self> {
         match identifier {
-            "us-west2" => Ok(Region::UsWest),
-            "us-east4-eqdc4a" => Ok(Region::UsEast),
-            "europe-west4-drams3a" => Ok(Region::EuWest),
-            "asia-southeast1-eqsg3a" => Ok(Region::SoutheastAsia),
+            "fsn1" => Ok(Region::Fsn1),
+            "hel1" => Ok(Region::Hel1),
+            "nbg1" => Ok(Region::Nbg1),
             _ => Err(anyhow!("unknown region identifier: {identifier}")),
         }
     }

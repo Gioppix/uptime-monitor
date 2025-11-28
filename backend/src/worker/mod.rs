@@ -453,7 +453,7 @@ mod tests {
         let session = Arc::new(session);
 
         let (_tx, rx) = watch::channel(None);
-        let worker = Worker::new(session.clone(), Region::UsEast, 1, 10, rx).await?;
+        let worker = Worker::new(session.clone(), Region::Hel1, 1, 10, rx).await?;
 
         let check1_id = uuid!("00000000-0000-0000-0000-000000000001");
         let check2_id = uuid!("00000000-0000-0000-0000-000000000002");

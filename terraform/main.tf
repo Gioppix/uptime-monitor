@@ -7,85 +7,6 @@ terraform {
   }
 }
 
-
-variable "hcloud_token" {
-  sensitive = true
-}
-
-# Define nodes to deploy across datacenters
-variable "nodes" {
-  description = "List of nodes to deploy with their datacenters and seed status"
-  type = list(object({
-    datacenter = string
-    is_seed    = bool
-  }))
-  default = [
-    { datacenter = "fsn1-dc14", is_seed = true },
-    { datacenter = "hel1-dc2", is_seed = true },
-    { datacenter = "nbg1-dc3", is_seed = false }
-  ]
-}
-
-# Control whether ScyllaDB is accessible via public IP
-variable "scylla_public_access" {
-  description = "Whether ScyllaDB should be accessible via public IP (true) or only private network (false)"
-  type        = bool
-  default     = false
-}
-
-# ScyllaDB CQL port (use 443 or 8443 to bypass network restrictions)
-variable "scylla_cql_port" {
-  description = "Port for ScyllaDB CQL connections (default 9042, use 443 or 8443 if blocked)"
-  type        = number
-  default     = 9042
-}
-
-# ScyllaDB SSL CQL port
-variable "scylla_ssl_cql_port" {
-  description = "Port for ScyllaDB SSL CQL connections"
-  type        = number
-  default     = 50001
-}
-
-# ScyllaDB shard-aware native port
-variable "scylla_shard_aware_port" {
-  description = "Port for ScyllaDB shard-aware native transport"
-  type        = number
-  default     = 50002
-}
-
-# ScyllaDB shard-aware SSL port
-variable "scylla_shard_aware_ssl_port" {
-  description = "Port for ScyllaDB shard-aware SSL transport"
-  type        = number
-  default     = 50003
-}
-
-# Monitoring stack ports
-variable "grafana_port" {
-  description = "Port for Grafana web interface"
-  type        = number
-  default     = 8080
-}
-
-variable "prometheus_port" {
-  description = "Port for Prometheus"
-  type        = number
-  default     = 8081
-}
-
-variable "alertmanager_port" {
-  description = "Port for Alertmanager"
-  type        = number
-  default     = 8082
-}
-
-variable "loki_port" {
-  description = "Port for Loki"
-  type        = number
-  default     = 8083
-}
-
 # Configure the Hetzner Cloud Provider
 provider "hcloud" {
   token = var.hcloud_token
@@ -94,4 +15,52 @@ provider "hcloud" {
 resource "hcloud_ssh_key" "default" {
   name       = "my-ssh-key"
   public_key = file("~/.ssh/id_rsa.pub")
+}
+
+# Create nodes for database and backend services
+resource "hcloud_server" "node" {
+  for_each = { for idx, node in var.nodes : idx => node }
+
+  name        = "node-${each.value.datacenter}"
+  image       = "ubuntu-24.04"
+  server_type = "cx23"
+  datacenter  = each.value.datacenter
+  ssh_keys    = [hcloud_ssh_key.default.id]
+
+  user_data = <<-EOF
+    #cloud-config
+    resize_rootfs: false
+    write_files:
+      - content: |
+          # Disable growroot
+        path: /etc/growroot-disabled
+
+    runcmd:
+      - [ sgdisk, -e, /dev/sda ]
+      - [ partprobe ]
+      - [ parted, -s, /dev/sda, mkpart, primary, xfs, "8GiB", "100%" ]
+      - [ partprobe ]
+      - [ mkfs.xfs, /dev/sda2 ]
+      - [ growpart, /dev/sda, "1" ]
+      - [ resize2fs, /dev/sda1 ]
+      - [ mkdir, -p, /data ]
+      - [ mount, /dev/sda2, /data ]
+      - [ chown, -R, "999:1000", /data ]
+      - [ chmod, -R, "755", /data ]
+      - [ apt-get, update ]
+      - [ apt-get, install, -y, docker.io, docker-compose ]
+      - [ systemctl, enable, docker ]
+      - [ systemctl, start, docker ]
+
+    mounts:
+     - [ /dev/sda2, /data ]
+  EOF
+}
+
+# Attach servers to private network
+resource "hcloud_server_network" "node_network_attachment" {
+  for_each = hcloud_server.node
+
+  server_id  = each.value.id
+  network_id = hcloud_network.node_network.id
 }

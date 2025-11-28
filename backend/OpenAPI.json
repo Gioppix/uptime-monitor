@@ -629,10 +629,9 @@
       "Region": {
         "type": "string",
         "enum": [
-          "UsWest",
-          "UsEast",
-          "EuWest",
-          "SoutheastAsia"
+          "Fsn1",
+          "Hel1",
+          "Nbg1"
         ]
       }
     },

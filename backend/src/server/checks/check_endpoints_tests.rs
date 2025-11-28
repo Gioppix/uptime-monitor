@@ -62,7 +62,7 @@ async fn test_check_endpoints() {
 
     let test_check = Check {
         check_id: Uuid::new_v4(),
-        regions: vec![Region::UsEast],
+        regions: vec![Region::Hel1],
         data: check_data,
     };
 
@@ -154,7 +154,7 @@ async fn test_check_endpoints() {
 
     let new_check = Check {
         check_id: Uuid::new_v4(),
-        regions: vec![Region::UsWest],
+        regions: vec![Region::Fsn1],
         data: check_data.clone(),
     };
 
@@ -201,7 +201,7 @@ async fn test_check_endpoints() {
 
     let updated_check = Check {
         check_id: new_check_id,
-        regions: vec![Region::EuWest],
+        regions: vec![Region::Nbg1],
         data: updated_data,
     };
 

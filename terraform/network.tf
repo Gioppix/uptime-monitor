@@ -70,6 +70,17 @@ resource "hcloud_firewall" "database_firewall" {
       "::/0"
     ]
   }
+
+  # Backend API port
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = var.backend_port
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
 }
 
 # Create firewall for monitoring server

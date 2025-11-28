@@ -313,7 +313,7 @@ mod tests {
         let (session, _keyspace) = create_test_database(None).await?;
 
         // Create check in multiple regions
-        let regions = vec![Region::UsWest, Region::UsEast];
+        let regions = vec![Region::Fsn1, Region::Hel1];
         let data = CheckData {
             check_name: "Test Check".to_string(),
             url: "https://example.com".to_string(),
@@ -340,7 +340,7 @@ mod tests {
         let mut updated_check = check.clone();
         updated_check.data.check_name = "Updated Check".to_string();
         // Update regions: remove UsWest, add EuWest
-        updated_check.regions = vec![Region::UsEast, Region::EuWest];
+        updated_check.regions = vec![Region::Hel1, Region::Nbg1];
         update_check(&session, updated_check).await?;
 
         // Verify update
@@ -352,7 +352,7 @@ mod tests {
         let mut actual_regions = retrieved_check.regions.clone();
         actual_regions.sort();
 
-        let mut expected_regions = vec![Region::UsEast, Region::EuWest];
+        let mut expected_regions = vec![Region::Hel1, Region::Nbg1];
         expected_regions.sort();
 
         assert_eq!(actual_regions, expected_regions);

@@ -58,5 +58,5 @@ define_env_vars!(
         usize
     ),
     (REPLICAS_COMMON_KEY, "REPLICAS_COMMON_KEY", String),
-    (RAILWAY_REPLICA_REGION, "RAILWAY_REPLICA_REGION", String),
+    (REGION, "REGION", String),
 );

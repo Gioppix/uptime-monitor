@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+    backend:
+        image: ${backend_image_name}
+        container_name: uptime-backend
+        network_mode: host
+        env_file:
+            - .env
+        environment:
+            - PORT=${backend_port}
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:${backend_port}/health || exit 1",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 10s
+        restart: unless-stopped

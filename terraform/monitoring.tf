@@ -150,6 +150,6 @@ resource "null_resource" "deploy_monitoring" {
   depends_on = [
     hcloud_server_network.monitoring_network_attachment,
     hcloud_server_network.node_network_attachment,
-    null_resource.deploy_docker_compose
+    null_resource.deploy_database
   ]
 }

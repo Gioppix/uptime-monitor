@@ -16,7 +16,7 @@ VALUES (55555555-5555-5555-5555-555555555555, 33333333-3333-3333-3333-3333333333
 INSERT INTO checks (check_id, region, bucket_version, bucket, check_name, url, http_method,
                     check_frequency_seconds, timeout_seconds, expected_status_code,
                     request_headers, request_body, is_enabled, created_at)
-VALUES (44444444-4444-4444-4444-444444444444, 'us-east4-eqdc4a', {{BUCKET_VERSION}}, {{BUCKET}},
+VALUES (44444444-4444-4444-4444-444444444444, 'hel1', {{BUCKET_VERSION}}, {{BUCKET}},
         'Test Check', 'https://example.com', 'GET', 60, 10, 200,
         {}, null, true, toTimestamp(now()));
 

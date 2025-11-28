@@ -175,7 +175,7 @@ impl ServiceCheck {
 
         ServiceCheck {
             check_id: Uuid::new_v4(),
-            region: Region::UsEast,
+            region: Region::Hel1,
             check_name: "Example Health Check".to_string(),
             url: "https://example.com/health".parse().unwrap(),
             http_method: Method::Get,
@@ -227,7 +227,7 @@ mod tests {
         // Case 1: Single bucket with all fields
         let checks = fetch_health_checks(
             &session,
-            Region::UsEast,
+            Region::Hel1,
             1,
             RingRange { start: 0, end: 1 },
             10,
@@ -245,7 +245,7 @@ mod tests {
         // Case 2: Multiple buckets
         let checks = fetch_health_checks(
             &session,
-            Region::UsEast,
+            Region::Hel1,
             1,
             RingRange { start: 0, end: 3 },
             10,
@@ -256,7 +256,7 @@ mod tests {
         // Case 3: Different region
         let checks = fetch_health_checks(
             &session,
-            Region::UsWest,
+            Region::Fsn1,
             1,
             RingRange { start: 0, end: 1 },
             10,
@@ -279,7 +279,7 @@ mod tests {
         // Should return only the 3 valid checks without erroring
         let checks = fetch_health_checks(
             &session,
-            Region::EuWest,
+            Region::Nbg1,
             1,
             RingRange { start: 0, end: 4 },
             10,

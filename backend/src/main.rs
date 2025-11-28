@@ -28,9 +28,9 @@ async fn main() {
     let process_id = Uuid::new_v4();
     let node_urls = parse_database_urls(&eager_env::DATABASE_NODE_URLS);
     let replica_id = env::var("RAILWAY_REPLICA_ID").ok();
-    let region: Region = eager_env::RAILWAY_REPLICA_REGION
+    let region: Region = eager_env::REGION
         .parse()
-        .expect("Invalid RAILWAY_REPLICA_REGION");
+        .expect("Invalid REGION");
     let git_sha = env::var("RAILWAY_GIT_COMMIT_SHA").ok();
 
     let database = connect_db(&node_urls, &eager_env::DATABASE_KEYSPACE)

@@ -236,7 +236,7 @@ export interface components {
             username: string;
         };
         /** @enum {string} */
-        Region: "UsWest" | "UsEast" | "EuWest" | "SoutheastAsia";
+        Region: "Fsn1" | "Hel1" | "Nbg1";
     };
     responses: never;
     parameters: never;

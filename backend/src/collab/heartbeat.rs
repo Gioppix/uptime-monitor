@@ -297,11 +297,11 @@ mod tests {
         let process_4 = Uuid::new_v4();
         let position = 42;
 
-        insert_heartbeat(&session, Region::UsWest, process_1, position, Utc::now()).await?;
+        insert_heartbeat(&session, Region::Fsn1, process_1, position, Utc::now()).await?;
 
         insert_heartbeat(
             &session,
-            Region::UsWest,
+            Region::Fsn1,
             process_2,
             position,
             Utc::now() - Duration::from_secs(240),
@@ -310,16 +310,16 @@ mod tests {
 
         insert_heartbeat(
             &session,
-            Region::UsWest,
+            Region::Fsn1,
             process_3,
             position,
             Utc::now() - Duration::from_secs(310),
         )
         .await?;
 
-        insert_heartbeat(&session, Region::EuWest, process_4, position, Utc::now()).await?;
+        insert_heartbeat(&session, Region::Nbg1, process_4, position, Utc::now()).await?;
 
-        let alive = get_alive_workers(&session, Region::UsWest, Duration::from_secs(300)).await?;
+        let alive = get_alive_workers(&session, Region::Fsn1, Duration::from_secs(300)).await?;
 
         assert!(alive.iter().any(|h| h.node_id == process_1));
         assert!(alive.iter().any(|h| h.node_id == process_2));

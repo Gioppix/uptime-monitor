@@ -199,7 +199,7 @@ mod tests {
         let client = Client::new();
         let check = ServiceCheck {
             check_id: Uuid::new_v4(),
-            region: Region::UsEast,
+            region: Region::Hel1,
             check_name: String::from("test_check"),
             url: server.url("/").parse().unwrap(),
             http_method: Method::Get,
@@ -235,7 +235,7 @@ mod tests {
         let client = Client::new();
         let check = ServiceCheck {
             check_id: Uuid::new_v4(),
-            region: Region::UsEast,
+            region: Region::Hel1,
             check_name: String::from("test_check"),
             url: server.url("/slow").parse().unwrap(),
             http_method: Method::Get,
@@ -267,7 +267,7 @@ mod tests {
         let client = Client::new();
         let check = ServiceCheck {
             check_id: Uuid::new_v4(),
-            region: Region::UsEast,
+            region: Region::Hel1,
             check_name: String::from("test_check"),
             url: "https://example.com/".parse().unwrap(),
             http_method: Method::Get,
@@ -294,7 +294,7 @@ mod tests {
         let client = Client::new();
         let check = ServiceCheck {
             check_id: Uuid::new_v4(),
-            region: Region::UsEast,
+            region: Region::Hel1,
             check_name: String::from("test_check"),
             url: server.url("/").parse().unwrap(),
             http_method: Method::Get,

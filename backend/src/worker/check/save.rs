@@ -113,7 +113,7 @@ mod tests {
         let (session, _keyspace) = create_test_database(None).await?;
         let session = Arc::new(session);
 
-        let manager = ResultSaveManager::new(session.clone(), Region::UsEast).await?;
+        let manager = ResultSaveManager::new(session.clone(), Region::Hel1).await?;
 
         let result = CheckResult {
             result_id: Uuid::new_v4(),
