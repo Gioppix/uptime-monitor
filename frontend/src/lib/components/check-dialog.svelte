@@ -44,7 +44,7 @@
             timeout_seconds: 30,
             is_enabled: true,
             request_body: '',
-            regions: ['UsWest'] as Region[]
+            regions: ['Fsn1'] as Region[]
         };
     });
 

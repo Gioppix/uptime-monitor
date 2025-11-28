@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+    frontend:
+        image: ${frontend_image_name}
+        container_name: uptime-frontend
+        network_mode: host
+        environment:
+            - PORT=${frontend_port}
+            - PUBLIC_PRIVATE_API_URL=${private_api_url}
+            - PUBLIC_BACKEND_PORT=${backend_port}
+            - ORIGIN=${origin}
+        healthcheck:
+            test: ['CMD-SHELL', 'curl -f http://localhost:${frontend_port} || exit 1']
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 10s
+        restart: unless-stopped

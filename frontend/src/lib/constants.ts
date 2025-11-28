@@ -4,10 +4,9 @@ export type Region = components['schemas']['Region'];
 export type Method = components['schemas']['Method'];
 
 export const REGION_LABELS: { [K in Region]: string } = {
-    UsWest: 'US West',
-    UsEast: 'US East',
-    EuWest: 'EU West',
-    SoutheastAsia: 'Southeast Asia'
+    Fsn1: 'Falkenstein',
+    Hel1: 'Helsinki',
+    Nbg1: 'Nuremberg'
 };
 
 const METHODS: { [K in Method]: null } = {

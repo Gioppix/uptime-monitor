@@ -14,6 +14,24 @@ locals {
   backend_image_name = "uptime-backend:latest"
   backend_image_tar  = "/tmp/backend-image.tar"
 
+  # CORS allowed origins for each node (with and without port for HTTP default port 80)
+  cors_allowed_origins = {
+    for idx, node in var.nodes : idx => join(",", [
+      # Public IP with explicit port
+      "http://${hcloud_server.node[idx].ipv4_address}:${var.frontend_port}",
+      # Public IP without port (browsers omit :80 for default HTTP port)
+      "http://${hcloud_server.node[idx].ipv4_address}",
+      # Private IP with explicit port
+      "http://${hcloud_server_network.node_network_attachment[idx].ip}:${var.frontend_port}",
+      # Private IP without port
+      "http://${hcloud_server_network.node_network_attachment[idx].ip}",
+      # Localhost with explicit port
+      "http://localhost:${var.frontend_port}",
+      # Localhost without port
+      "http://localhost"
+    ])
+  }
+
   # Render .env file for each node
   backend_env_configs = {
     for idx, node in var.nodes : idx => <<-EOF
@@ -29,7 +47,7 @@ DEV_MODE="false"
 
 SESSION_DURATION_DAYS="7"
 
-FRONTEND_PUBLIC_URL="http://localhost:5173"
+FRONTEND_PUBLIC_URL="${local.cors_allowed_origins[idx]}"
 
 HEARTBEAT_INTERVAL_SECONDS="15"
 
@@ -41,7 +59,7 @@ MAX_CONCURRENT_HEALTH_CHECKS="100"
 
 REPLICAS_COMMON_KEY='secret'
 
-RUST_LOG=info
+RUST_LOG=trace
 
 REGION='${node.region}'
 EOF

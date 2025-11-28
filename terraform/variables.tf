@@ -84,3 +84,10 @@ variable "backend_port" {
   type        = number
   default     = 40000
 }
+
+# Frontend port
+variable "frontend_port" {
+  description = "Port for the frontend web interface"
+  type        = number
+  default     = 80
+}

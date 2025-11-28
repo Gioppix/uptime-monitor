@@ -23,9 +23,14 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
     let data = Data::new(state);
 
     HttpServer::new(move || {
-        let cors = Cors::default()
+        // Parse FRONTEND_PUBLIC_URL as comma-separated list of allowed origins
+        let allowed_origins = eager_env::FRONTEND_PUBLIC_URL
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty());
+
+        let mut cors = Cors::default()
             .supports_credentials()
-            .allowed_origin(eager_env::FRONTEND_PUBLIC_URL.as_str())
             .allowed_methods(vec![
                 Method::GET,
                 Method::POST,
@@ -34,6 +39,11 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
             ])
             .allowed_headers(vec!["Content-Type", "Authorization"])
             .max_age(60 * 60 * 12);
+
+        // Add each allowed origin
+        for origin in allowed_origins {
+            cors = cors.allowed_origin(origin);
+        }
 
         App::new()
             .wrap(cors)
