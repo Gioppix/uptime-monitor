@@ -9,7 +9,9 @@ authorizer: AllowAllAuthorizer
 
 # Ports
 native_transport_port: ${scylla_port}
-native_transport_port_ssl: null
+native_transport_port_ssl: ${scylla_ssl_port}
+native_shard_aware_transport_port: ${scylla_shard_aware_port}
+native_shard_aware_transport_port_ssl: ${scylla_shard_aware_ssl}
 
 # Storage
 data_file_directories:
@@ -18,4 +20,4 @@ data_file_directories:
 commitlog_directory: /var/lib/scylla/commitlog
 
 # Performance
-endpoint_snitch: SimpleSnitch
+endpoint_snitch: GossipingPropertyFileSnitch

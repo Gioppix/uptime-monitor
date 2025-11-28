@@ -31,7 +31,40 @@ resource "hcloud_firewall" "database_firewall" {
   rule {
     direction = "in"
     protocol  = "tcp"
-    port      = var.scylla_port
+    port      = var.scylla_cql_port
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  # ScyllaDB SSL CQL port
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = var.scylla_ssl_cql_port
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  # ScyllaDB shard-aware native port
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = var.scylla_shard_aware_port
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  # ScyllaDB shard-aware SSL port
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = var.scylla_shard_aware_ssl_port
     source_ips = [
       "0.0.0.0/0",
       "::/0"

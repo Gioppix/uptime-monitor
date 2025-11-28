@@ -55,8 +55,12 @@ locals {
 
   # Render scylla.yaml for each node
   scylla_configs = {
-    for idx, server in hcloud_server.node : idx => templatefile("${path.module}/../database/scylla.yaml.tpl", {
-      scylla_port = var.scylla_port
+    for idx, server in hcloud_server.node : idx => templatefile("${path.module}/../database/scylla.yaml", {
+      scylla_port             = var.scylla_cql_port
+      scylla_ssl_port         = var.scylla_ssl_cql_port
+      scylla_shard_aware_port = var.scylla_shard_aware_port
+      scylla_shard_aware_ssl  = var.scylla_shard_aware_ssl_port
+      datacenter              = var.nodes[tonumber(idx)].datacenter
     })
   }
 
@@ -70,6 +74,13 @@ locals {
       seeds                 = local.seed_list
     })
   }
+
+  # Render cassandra-rackdc.properties for each node
+  rackdc_configs = {
+    for idx, server in hcloud_server.node : idx => templatefile("${path.module}/../database/cassandra-rackdc.properties", {
+      datacenter = var.nodes[tonumber(idx)].datacenter
+    })
+  }
 }
 
 resource "null_resource" "deploy_docker_compose" {
@@ -78,6 +89,7 @@ resource "null_resource" "deploy_docker_compose" {
   triggers = {
     docker_compose_hash = md5(local.docker_compose_configs[each.key])
     config_hash         = md5(local.scylla_configs[each.key])
+    rackdc_hash         = md5(local.rackdc_configs[each.key])
     server_id           = each.value.id
   }
 
@@ -106,6 +118,11 @@ resource "null_resource" "deploy_docker_compose" {
   provisioner "file" {
     content     = local.scylla_configs[each.key]
     destination = "/root/scylla/scylla.yaml"
+  }
+
+  provisioner "file" {
+    content     = local.rackdc_configs[each.key]
+    destination = "/root/scylla/cassandra-rackdc.properties"
   }
 
   provisioner "remote-exec" {

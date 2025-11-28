@@ -24,3 +24,4 @@ services:
         volumes:
             - /data:/var/lib/scylla
             - ./scylla.yaml:/etc/scylla/scylla.yaml:ro
+            - ./cassandra-rackdc.properties:/etc/scylla/cassandra-rackdc.properties:ro

@@ -34,10 +34,31 @@ variable "scylla_public_access" {
 }
 
 # ScyllaDB CQL port (use 443 or 8443 to bypass network restrictions)
-variable "scylla_port" {
+variable "scylla_cql_port" {
   description = "Port for ScyllaDB CQL connections (default 9042, use 443 or 8443 if blocked)"
   type        = number
   default     = 9042
+}
+
+# ScyllaDB SSL CQL port
+variable "scylla_ssl_cql_port" {
+  description = "Port for ScyllaDB SSL CQL connections"
+  type        = number
+  default     = 50001
+}
+
+# ScyllaDB shard-aware native port
+variable "scylla_shard_aware_port" {
+  description = "Port for ScyllaDB shard-aware native transport"
+  type        = number
+  default     = 50002
+}
+
+# ScyllaDB shard-aware SSL port
+variable "scylla_shard_aware_ssl_port" {
+  description = "Port for ScyllaDB shard-aware SSL transport"
+  type        = number
+  default     = 50003
 }
 
 # Monitoring stack ports

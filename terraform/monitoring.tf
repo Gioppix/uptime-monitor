@@ -7,7 +7,7 @@ resource "hcloud_server" "monitoring" {
   name        = "scylla-monitoring"
   image       = "ubuntu-24.04"
   server_type = "cx23"
-  datacenter  = "fsn1-dc14" # Deploy in same datacenter as first node
+  datacenter  = "nbg1-dc3" # Deploy in same datacenter as first node
   ssh_keys    = [hcloud_ssh_key.default.id]
 
   user_data = <<-EOF
@@ -114,8 +114,9 @@ resource "null_resource" "deploy_monitoring" {
     scylla_config        = md5(local.prometheus_scylla_config)
     node_exporter_config = md5(local.prometheus_node_exporter_config)
     manager_config       = md5(local.prometheus_manager_config)
-    # Don't trigger on server recreation
-    install_script = md5(local.monitoring_install_script)
+    install_script       = md5(local.monitoring_install_script)
+    # Trigger on server recreation
+    server_id = hcloud_server.monitoring.id
   }
 
   connection {
