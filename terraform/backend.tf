@@ -14,22 +14,37 @@ locals {
   backend_image_name = "uptime-backend:latest"
   backend_image_tar  = "/tmp/backend-image.tar"
 
-  # CORS allowed origins for each node (with and without port for HTTP default port 80)
+  # CORS allowed origins for each node
   cors_allowed_origins = {
-    for idx, node in var.nodes : idx => join(",", [
-      # Public IP with explicit port
-      "http://${hcloud_server.node[idx].ipv4_address}:${var.frontend_port}",
-      # Public IP without port (browsers omit :80 for default HTTP port)
-      "http://${hcloud_server.node[idx].ipv4_address}",
-      # Private IP with explicit port
-      "http://${hcloud_server_network.node_network_attachment[idx].ip}:${var.frontend_port}",
-      # Private IP without port
-      "http://${hcloud_server_network.node_network_attachment[idx].ip}",
-      # Localhost with explicit port
-      "http://localhost:${var.frontend_port}",
-      # Localhost without port
-      "http://localhost"
-    ])
+    for idx, node in var.nodes : idx => join(",", concat(
+      # Main domain origins (if domain is provided)
+      var.domain != "" ? [
+        "https://${var.domain}",
+        "https://www.${var.domain}",
+        "https://${var.api_subdomain}.${var.domain}",
+        "http://${var.domain}",
+        "http://www.${var.domain}",
+        "http://${var.api_subdomain}.${var.domain}"
+      ] : [],
+      # Regional subdomains (all regions)
+      var.domain != "" ? flatten([
+        for region_idx, region_node in var.nodes : [
+          "https://${region_node.region}.${var.domain}",
+          "https://${var.api_subdomain}.${region_node.region}.${var.domain}",
+          "http://${region_node.region}.${var.domain}",
+          "http://${var.api_subdomain}.${region_node.region}.${var.domain}"
+        ]
+      ]) : [],
+      # IP-based origins (for direct access and development)
+      [
+        "http://${hcloud_server.node[idx].ipv4_address}:${var.frontend_port}",
+        "http://${hcloud_server.node[idx].ipv4_address}",
+        "http://${hcloud_server_network.node_network_attachment[idx].ip}:${var.frontend_port}",
+        "http://${hcloud_server_network.node_network_attachment[idx].ip}",
+        "http://localhost:${var.frontend_port}",
+        "http://localhost"
+      ]
+    ))
   }
 
   # Render .env file for each node
@@ -40,6 +55,7 @@ DATABASE_KEYSPACE="default_keyspace"
 DATABASE_CONCURRENT_REQUESTS="10"
 
 COOKIE_KEY="xxxx"
+COOKIE_DOMAIN="${var.domain != "" ? ".${var.domain}" : ""}"
 
 DATABASE_CONNECTIONS="2"
 

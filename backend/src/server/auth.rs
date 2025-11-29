@@ -1,4 +1,4 @@
-use crate::{mutations::sessions::get_valid_session_user_id, server::AppState};
+use crate::{eager_env, mutations::sessions::get_valid_session_user_id, server::AppState};
 use actix_web::{
     FromRequest, HttpRequest,
     cookie::{Cookie, SameSite},
@@ -85,6 +85,7 @@ pub fn create_session_cookie(session_id: Uuid) -> Cookie<'static> {
         .secure(true)
         .same_site(SameSite::None)
         .path("/")
+        .domain(&*eager_env::COOKIE_DOMAIN)
         .finish()
 }
 
@@ -95,6 +96,7 @@ pub fn create_logout_cookie() -> Cookie<'static> {
         .secure(true)
         .same_site(SameSite::None)
         .path("/")
+        .domain(&*eager_env::COOKIE_DOMAIN)
         .max_age(actix_web::cookie::time::Duration::seconds(0))
         .finish()
 }

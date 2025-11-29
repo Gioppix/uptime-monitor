@@ -18,10 +18,10 @@ locals {
   frontend_compose_configs = {
     for idx, node in var.nodes : idx => templatefile("${path.module}/../frontend/docker-compose.yml", {
       frontend_image_name = local.frontend_image_name
-      frontend_port       = var.frontend_port
+      frontend_port       = var.frontend_internal_port
       private_api_url     = "http://${hcloud_server_network.node_network_attachment[idx].ip}:${var.backend_port}"
-      backend_port        = var.backend_port
-      origin              = "http://${hcloud_server.node[idx].ipv4_address}:${var.frontend_port}"
+      backend_url         = var.domain != "" ? "https://${var.api_subdomain}.${node.region}.${var.domain}" : "http://${hcloud_server.node[idx].ipv4_address}:${var.backend_port}"
+      origin              = var.domain != "" ? "https://${var.domain}" : "http://${hcloud_server.node[idx].ipv4_address}"
     })
   }
 }

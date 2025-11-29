@@ -1,0 +1,53 @@
+{
+    # Force production Let's Encrypt
+    acme_ca https://acme-v02.api.letsencrypt.org/directory
+}
+
+# Regional frontend subdomain (e.g., fsn1.uptime.giovannifeltrin.com)
+${region}.${domain} {
+    reverse_proxy localhost:${frontend_port}
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+# Regional API subdomain (e.g., api.fsn1.uptime.giovannifeltrin.com)
+${api_subdomain}.${region}.${domain} {
+    reverse_proxy localhost:${backend_port}
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+}
+
+%{ if is_primary ~}
+# Main domain (only on primary region)
+${domain} {
+    reverse_proxy localhost:${frontend_port}
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+# Main API domain (only on primary region)
+${api_subdomain}.${domain} {
+    reverse_proxy localhost:${backend_port}
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+}
+
+%{ endif ~}

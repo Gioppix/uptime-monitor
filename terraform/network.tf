@@ -92,6 +92,17 @@ resource "hcloud_firewall" "database_firewall" {
       "::/0"
     ]
   }
+
+  # HTTPS port for Caddy SSL
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = "443"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
 }
 
 # Create firewall for monitoring server

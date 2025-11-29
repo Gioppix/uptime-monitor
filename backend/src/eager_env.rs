@@ -40,7 +40,7 @@ define_env_vars!(
         usize
     ),
     (DATABASE_CONNECTIONS, "DATABASE_CONNECTIONS", usize),
-    (COOKIE_KEY, "COOKIE_KEY", String),
+    (COOKIE_DOMAIN, "COOKIE_DOMAIN", String),
     (DEV_MODE, "DEV_MODE", bool),
     (SESSION_DURATION_DAYS, "SESSION_DURATION_DAYS", i64),
     (FRONTEND_PUBLIC_URL, "FRONTEND_PUBLIC_URL", String),

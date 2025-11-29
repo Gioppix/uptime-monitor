@@ -85,9 +85,34 @@ variable "backend_port" {
   default     = 40000
 }
 
-# Frontend port
+# Frontend port (public-facing, handled by Caddy)
 variable "frontend_port" {
   description = "Port for the frontend web interface"
   type        = number
   default     = 80
+}
+
+# Frontend internal port (for Docker container)
+variable "frontend_internal_port" {
+  description = "Internal port for the frontend container"
+  type        = number
+  default     = 3000
+}
+
+# Domain configuration
+variable "domain" {
+  description = "Primary domain for the application (e.g., example.com)"
+  type        = string
+}
+
+variable "api_subdomain" {
+  description = "Subdomain for API endpoint"
+  type        = string
+  default     = "api"
+}
+
+variable "primary_region" {
+  description = "Primary region for main domain (e.g., nbg1)"
+  type        = string
+  default     = "nbg1"
 }
