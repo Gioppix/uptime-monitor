@@ -1,5 +1,5 @@
 use crate::{
-    mutations::{
+    queries::{
         authorization::{
             CheckAccess, get_user_access_to_check, get_user_checks, grant_check_access,
         },

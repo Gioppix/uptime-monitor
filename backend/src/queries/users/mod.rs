@@ -1,7 +1,7 @@
 mod password;
 
 use crate::database::preparer::CachedPreparedStatement;
-use crate::mutations::users::password::hash_password;
+use crate::queries::users::password::hash_password;
 use anyhow::Result;
 use scylla::{client::session::Session, statement::batch::Batch};
 use serde::{Deserialize, Serialize};

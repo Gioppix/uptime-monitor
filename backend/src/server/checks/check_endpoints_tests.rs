@@ -1,5 +1,5 @@
 use crate::collab::get_bucket_for_check;
-use crate::mutations::checks::{Check, CheckData};
+use crate::queries::checks::{Check, CheckData};
 use crate::regions::Region;
 use crate::server::checks::CheckWithAccess;
 use crate::server::start_server_test;

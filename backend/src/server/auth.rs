@@ -1,4 +1,4 @@
-use crate::{eager_env, mutations::sessions::get_valid_session_user_id, server::AppState};
+use crate::{eager_env, queries::sessions::get_valid_session_user_id, server::AppState};
 use actix_web::{
     FromRequest, HttpRequest,
     cookie::{Cookie, SameSite},

@@ -1,5 +1,5 @@
 use crate::{
-    mutations::{
+    queries::{
         sessions::{create_session, log_out_session},
         users::{LoginResult, PublicUser, create_user, get_user_by_id, login_user},
     },

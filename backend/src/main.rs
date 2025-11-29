@@ -1,7 +1,7 @@
 mod collab;
 mod database;
 mod eager_env;
-mod mutations;
+mod queries;
 mod regions;
 mod server;
 mod utils;
@@ -28,9 +28,7 @@ async fn main() {
     let process_id = Uuid::new_v4();
     let node_urls = parse_database_urls(&eager_env::DATABASE_NODE_URLS);
     let replica_id = env::var("RAILWAY_REPLICA_ID").ok();
-    let region: Region = eager_env::REGION
-        .parse()
-        .expect("Invalid REGION");
+    let region: Region = eager_env::REGION.parse().expect("Invalid REGION");
     let git_sha = env::var("RAILWAY_GIT_COMMIT_SHA").ok();
 
     let database = connect_db(&node_urls, &eager_env::DATABASE_KEYSPACE)
