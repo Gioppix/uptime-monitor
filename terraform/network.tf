@@ -16,6 +16,16 @@ resource "hcloud_network_subnet" "node_subnet" {
 resource "hcloud_firewall" "database_firewall" {
   name = "database-firewall"
 
+  # ICMP (ping)
+  rule {
+    direction = "in"
+    protocol  = "icmp"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
   # SSH access
   rule {
     direction = "in"
@@ -108,6 +118,16 @@ resource "hcloud_firewall" "database_firewall" {
 # Create firewall for monitoring server
 resource "hcloud_firewall" "monitoring_firewall" {
   name = "monitoring-firewall"
+
+  # ICMP (ping)
+  rule {
+    direction = "in"
+    protocol  = "icmp"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
 
   # SSH access
   rule {
