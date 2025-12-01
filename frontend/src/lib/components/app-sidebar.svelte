@@ -63,14 +63,14 @@
             <Sidebar.MenuItem>
                 <Sidebar.MenuButton size="lg" class="data-[slot=sidebar-menu-button]:p-1.5!">
                     {#snippet child({ props })}
-                        <div {...props}>
+                        <a {...props} href={resolve('/app')}>
                             <div
                                 class="flex aspect-square size-5 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground"
                             >
                                 <ActivityIcon class="size-3!" />
                             </div>
                             <span class="text-base font-semibold">Pinger</span>
-                        </div>
+                        </a>
                     {/snippet}
                 </Sidebar.MenuButton>
             </Sidebar.MenuItem>

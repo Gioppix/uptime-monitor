@@ -72,6 +72,26 @@ export interface paths {
         patch: operations["updateCheck"];
         trace?: never;
     };
+    "/checks/{check_id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get check metrics
+         * @description Get aggregated uptime and performance metrics for a check over a time range
+         */
+        get: operations["getCheckMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -230,6 +250,19 @@ export interface components {
         };
         /** @enum {string} */
         Method: "GET" | "POST" | "PUT" | "DELETE" | "HEAD";
+        MetricsResponse: components["schemas"]["MetricsSummary"] & {
+            by_region: components["schemas"]["RegionMetrics"][];
+        };
+        MetricsSummary: {
+            /** Format: double */
+            avg_response_time_ms: number;
+            /** Format: double */
+            p95_response_time_ms: number;
+            /** Format: double */
+            p99_response_time_ms: number;
+            /** Format: double */
+            uptime_percent: number;
+        };
         PublicUser: {
             /** Format: uuid */
             user_id: string;
@@ -237,6 +270,9 @@ export interface components {
         };
         /** @enum {string} */
         Region: "Fsn1" | "Hel1" | "Nbg1";
+        RegionMetrics: components["schemas"]["MetricsSummary"] & {
+            region: components["schemas"]["Region"];
+        };
     };
     responses: never;
     parameters: never;
@@ -466,6 +502,64 @@ export interface operations {
                 content?: never;
             };
             /** @description Forbidden - no edit access to check */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Check not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCheckMetrics: {
+        parameters: {
+            query: {
+                /** @description Start timestamp (ISO 8601) */
+                from: string;
+                /** @description End timestamp (ISO 8601, exclusive) */
+                to: string;
+                /** @description Comma-separated list of regions to filter by */
+                regions?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Check ID */
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metrics retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponse"];
+                };
+            };
+            /** @description Invalid query parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - no access to check */
             403: {
                 headers: {
                     [name: string]: unknown;

@@ -5,16 +5,15 @@
     import { Button } from '$lib/components/ui/button';
     import * as Table from '$lib/components/ui/table';
     import { Badge } from '$lib/components/ui/badge';
+    import UptimeIndicator from './uptime-indicator.svelte';
     import Pencil from '@lucide/svelte/icons/pencil';
     import Trash2 from '@lucide/svelte/icons/trash-2';
     import { REGION_LABELS } from '$lib/constants';
-    import type { components } from '$lib/api/schema';
-
-    type Check = components['schemas']['CheckWithAccess'];
+    import type { CheckWithMetrics } from '$lib/types';
 
     interface Props {
-        checks: Check[];
-        onEdit?: (check: Check) => void;
+        checks: CheckWithMetrics[];
+        onEdit?: (check: CheckWithMetrics) => void;
     }
 
     let { checks, onEdit }: Props = $props();
@@ -38,6 +37,7 @@
             <Table.Head>Method</Table.Head>
             <Table.Head>Frequency</Table.Head>
             <Table.Head>Regions</Table.Head>
+            <Table.Head>Uptime</Table.Head>
             <Table.Head>Status</Table.Head>
             <Table.Head class="text-right">Actions</Table.Head>
         </Table.Row>
@@ -68,6 +68,13 @@
                     </div>
                 </Table.Cell>
                 <Table.Cell>
+                    {#if check.metrics}
+                        <UptimeIndicator uptime={check.metrics.uptime_percent} />
+                    {:else}
+                        <span class="text-sm text-muted-foreground">-</span>
+                    {/if}
+                </Table.Cell>
+                <Table.Cell>
                     {#if check.is_enabled}
                         <Badge variant="default">Enabled</Badge>
                     {:else}
@@ -93,7 +100,7 @@
             </Table.Row>
         {:else}
             <Table.Row>
-                <Table.Cell colspan={7} class="text-center text-muted-foreground">
+                <Table.Cell colspan={8} class="text-center text-muted-foreground">
                     No checks found. Create your first check to get started.
                 </Table.Cell>
             </Table.Row>

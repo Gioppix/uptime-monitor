@@ -5,6 +5,7 @@
     import { Button } from '$lib/components/ui/button';
     import CheckDialog from '$lib/components/check-dialog.svelte';
     import CheckDetailCards from '$lib/components/check-detail-cards.svelte';
+    import CheckMetrics from '$lib/components/check-metrics.svelte';
     import ArrowLeft from '@lucide/svelte/icons/arrow-left';
     import Pencil from '@lucide/svelte/icons/pencil';
     import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -55,6 +56,10 @@
     </div>
 
     <CheckDetailCards check={data.check} />
+
+    {#if data.metrics}
+        <CheckMetrics metrics={data.metrics} expectedRegions={data.check.regions} />
+    {/if}
 </div>
 
 <CheckDialog bind:open={showEditDialog} check={data.check} />

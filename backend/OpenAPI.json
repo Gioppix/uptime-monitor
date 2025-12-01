@@ -263,6 +263,89 @@
         ]
       }
     },
+    "/checks/{check_id}/metrics": {
+      "get": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Get check metrics",
+        "description": "Get aggregated uptime and performance metrics for a check over a time range",
+        "operationId": "getCheckMetrics",
+        "parameters": [
+          {
+            "name": "check_id",
+            "in": "path",
+            "description": "Check ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp (ISO 8601)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp (ISO 8601, exclusive)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "regions",
+            "in": "query",
+            "description": "Comma-separated list of regions to filter by",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metrics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters"
+          },
+          "403": {
+            "description": "Forbidden - no access to check"
+          },
+          "404": {
+            "description": "Check not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "cookie_auth": []
+          },
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -610,6 +693,54 @@
           "HEAD"
         ]
       },
+      "MetricsResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MetricsSummary"
+          },
+          {
+            "type": "object",
+            "required": [
+              "by_region"
+            ],
+            "properties": {
+              "by_region": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/RegionMetrics"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "MetricsSummary": {
+        "type": "object",
+        "required": [
+          "uptime_percent",
+          "avg_response_time_ms",
+          "p95_response_time_ms",
+          "p99_response_time_ms"
+        ],
+        "properties": {
+          "avg_response_time_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "p95_response_time_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "p99_response_time_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "uptime_percent": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "PublicUser": {
         "type": "object",
         "required": [
@@ -632,6 +763,24 @@
           "Fsn1",
           "Hel1",
           "Nbg1"
+        ]
+      },
+      "RegionMetrics": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MetricsSummary"
+          },
+          {
+            "type": "object",
+            "required": [
+              "region"
+            ],
+            "properties": {
+              "region": {
+                "$ref": "#/components/schemas/Region"
+              }
+            }
+          }
         ]
       }
     },

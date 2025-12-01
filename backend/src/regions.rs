@@ -5,7 +5,18 @@ use strum::{EnumIter, IntoEnumIterator};
 use utoipa::ToSchema;
 
 #[derive(
-    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, EnumIter, Serialize, Deserialize, ToSchema,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    EnumIter,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    Hash,
 )]
 pub enum Region {
     Fsn1, // Falkenstein, Germany

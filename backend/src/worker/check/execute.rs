@@ -107,7 +107,7 @@ pub async fn execute_check(
     };
 
     // Validate URL and transform to use IP address
-    let (_ip_url, original_host) = validate_and_transform_url(&check.url, accept_local)
+    let (_ip_url, _original_host) = validate_and_transform_url(&check.url, accept_local)
         .await
         .context("URL validation failed")?;
 
@@ -118,7 +118,6 @@ pub async fn execute_check(
     // code: -67843, message: "The certificate was not trusted."
     let mut request = client
         .request(method, check.url.clone())
-        .header(header::HOST, original_host) // Set original host for virtual hosting and TLS/SNI
         .timeout(Duration::from_secs(check.timeout_seconds as u64));
 
     for (key, value) in &check.request_headers {
@@ -147,7 +146,7 @@ pub async fn execute_check(
                 error.is_timeout() || error.is_connect() || error.is_request() || error.is_body();
 
             if !genuine_fail {
-                bail!("health check error");
+                return Err(error).context("not a genuine fail");
             } else {
                 trace!("Service check encountered error: {:?}", error);
             }
@@ -183,6 +182,7 @@ mod tests {
     use super::*;
     use crate::{
         regions::Region,
+        utils::init_logging,
         worker::fetch::{Method, ServiceCheck},
     };
     use httpmock::prelude::*;
@@ -311,6 +311,29 @@ mod tests {
         assert!(result.is_err());
 
         mock.assert_calls(0);
+    }
+
+    #[tokio::test]
+    async fn test_execute_check_google() {
+        init_logging(log::LevelFilter::Trace);
+
+        let client = Client::new();
+        let check = ServiceCheck {
+            check_id: Uuid::new_v4(),
+            region: Region::Hel1,
+            check_name: String::from("test_check"),
+            url: "https://google.com".parse().unwrap(),
+            http_method: Method::Get,
+            check_frequency_seconds: 60,
+            timeout_seconds: 30,
+            expected_status_code: 200,
+            request_headers: HashMap::new(),
+            request_body: None,
+            is_enabled: true,
+            created_at: Utc::now(),
+        };
+
+        execute_check(&client, &check, false).await.unwrap();
     }
 
     #[tokio::test]

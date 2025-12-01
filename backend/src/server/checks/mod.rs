@@ -1,3 +1,5 @@
+mod metrics;
+
 use crate::{
     queries::{
         authorization::{
@@ -26,7 +28,8 @@ pub fn configure_routes(config: &mut ServiceConfig) {
             .service(get_check_endpoint)
             .service(list_my_checks)
             .service(update_check_endpoint)
-            .service(delete_check_endpoint),
+            .service(delete_check_endpoint)
+            .service(metrics::get_check_metrics_endpoint),
     );
 }
 

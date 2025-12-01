@@ -2,9 +2,9 @@ mod check;
 mod fetch;
 
 use crate::{
-    eager_env,
     collab::{NodePosition, RingRange},
     database::Database,
+    eager_env,
     regions::Region,
     worker::{
         check::{execute::execute_check, save::ResultSaveManager},

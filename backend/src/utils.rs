@@ -59,6 +59,12 @@
 // }
 
 #[cfg(test)]
-pub fn init_logging() {
-    let _ = env_logger::builder().is_test(true).try_init();
+use log::LevelFilter;
+
+#[cfg(test)]
+pub fn init_logging(level: LevelFilter) {
+    let _ = env_logger::builder()
+        .filter_level(level)
+        .is_test(true)
+        .try_init();
 }

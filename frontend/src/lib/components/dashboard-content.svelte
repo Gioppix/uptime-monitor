@@ -6,14 +6,13 @@
     import Activity from '@lucide/svelte/icons/activity';
     import Clock from '@lucide/svelte/icons/clock';
     import Globe from '@lucide/svelte/icons/globe';
+    import UptimeIndicator from './uptime-indicator.svelte';
     import { REGION_LABELS } from '$lib/constants';
-    import type { components } from '$lib/api/schema';
     import { resolve } from '$app/paths';
-
-    type Check = components['schemas']['CheckWithAccess'];
+    import type { CheckWithMetrics } from '$lib/types';
 
     interface Props {
-        checks: Check[];
+        checks: CheckWithMetrics[];
     }
 
     let { checks }: Props = $props();
@@ -98,6 +97,9 @@
                     <div class="flex items-center justify-between border-b pb-4 last:border-0">
                         <div class="flex-1">
                             <div class="flex items-center gap-3">
+                                {#if check.metrics}
+                                    <UptimeIndicator uptime={check.metrics.uptime_percent} />
+                                {/if}
                                 <a
                                     href={resolve('/app/checks/[id]', { id: check.check_id })}
                                     class="font-medium hover:underline"

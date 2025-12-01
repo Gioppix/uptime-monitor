@@ -1,5 +1,5 @@
 import createClient from 'openapi-fetch';
-import type { paths } from './schema';
+import type { paths, components } from './schema';
 import { env } from '$env/dynamic/public';
 
 // Create client with public backend URL
@@ -9,3 +9,5 @@ export const api = createClient<paths>({
     baseUrl: env.PUBLIC_BACKEND_URL,
     credentials: 'include'
 });
+
+export type { components as ApiComponents };
