@@ -92,16 +92,16 @@ reset_dev_database() {
   echo "Resetting development database..."
 
   echo "Dropping keyspace 'default_keyspace'..."
-  docker exec -i cassandra1 cqlsh -e "DROP KEYSPACE IF EXISTS default_keyspace;"
+  docker exec -i scylla1 cqlsh -e "DROP KEYSPACE IF EXISTS default_keyspace;"
 
   echo "Creating keyspace 'default_keyspace'..."
-  docker exec -i cassandra1 cqlsh -e "CREATE KEYSPACE IF NOT EXISTS default_keyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};"
+  docker exec -i scylla1 cqlsh -e "CREATE KEYSPACE IF NOT EXISTS default_keyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};"
 
   echo "Running migrations..."
   for migration in backend/migrations/*.cql; do
     if [ -f "$migration" ]; then
       echo "Applying migration: $(basename $migration)"
-      docker exec -i cassandra1 cqlsh -k default_keyspace < "$migration"
+      docker exec -i scylla1 cqlsh -k default_keyspace < "$migration"
     fi
   done
 

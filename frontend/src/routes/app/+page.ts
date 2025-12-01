@@ -6,8 +6,11 @@ export const load: PageLoad = async ({ fetch }) => {
     const checksResult = await api.GET('/checks/', { fetch });
     const checks = checksResult.data || [];
 
-    const to = new Date().toISOString();
-    const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const to = now.toISOString();
+    const fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const from = fromDate.toISOString();
 
     const checksWithMetrics: CheckWithMetrics[] = await Promise.all(
         checks.map(async (check) => {
