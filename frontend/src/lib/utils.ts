@@ -12,6 +12,19 @@ export type WithoutChildren<T> = T extends { children?: any } ? Omit<T, 'childre
 export type WithoutChildrenOrChild<T> = WithoutChildren<WithoutChild<T>>;
 export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & { ref?: U | null };
 
+export function getUserInitial(username: string): string {
+    return username.charAt(0).toUpperCase();
+}
+
+export function getUserColor(userId: string): string {
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+        hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 70%, 60%)`;
+}
+
 export function getMinuteDateRange24Hours() {
     const now = new Date();
     now.setSeconds(0, 0);
