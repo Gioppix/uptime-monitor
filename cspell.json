@@ -11,6 +11,7 @@
     "itertools"
   ],
   "userWords": [
-    " "
+    " ",
+    "getMinuteDateRange24Hours"
   ]
 }

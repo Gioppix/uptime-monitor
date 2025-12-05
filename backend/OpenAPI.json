@@ -359,6 +359,37 @@
         }
       }
     },
+    "/internal": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "operationId": "internal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Vec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Internal endpoint success"
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing password"
+          }
+        },
+        "security": [
+          {
+            "internal_bearer": []
+          }
+        ]
+      }
+    },
     "/users/info/{user_id}": {
       "get": {
         "tags": [
@@ -782,6 +813,53 @@
             }
           }
         ]
+      },
+      "Vec": {
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "ServiceCheckMutation"
+              ],
+              "properties": {
+                "ServiceCheckMutation": {
+                  "type": "object",
+                  "required": [
+                    "check_id"
+                  ],
+                  "properties": {
+                    "check_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": [
+                "ShuttingDown"
+              ],
+              "properties": {
+                "ShuttingDown": {
+                  "type": "object",
+                  "required": [
+                    "process_id"
+                  ],
+                  "properties": {
+                    "process_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "securitySchemes": {
@@ -793,6 +871,10 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "session_id"
+      },
+      "internal_bearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   },
@@ -808,6 +890,10 @@
     {
       "name": "checks",
       "description": "Health check management endpoints."
+    },
+    {
+      "name": "internal",
+      "description": "Internal endpoints for backend-to-backend communication."
     }
   ]
 }

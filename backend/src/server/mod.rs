@@ -1,22 +1,30 @@
 mod auth;
 mod checks;
 mod health;
+mod internal;
 mod openapi;
 mod users;
 
-use crate::{database::Database, eager_env, server::health::*};
+use crate::{
+    collab::heartbeat::HeartbeatManager, database::Database, eager_env, server::health::*,
+};
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, http::Method, web::Data};
-use std::{net::TcpListener, sync::Arc};
+use std::{collections::BTreeSet, net::TcpListener, sync::Arc};
+use tokio::sync::mpsc::UnboundedSender;
 use utoipa::OpenApi;
 use utoipa_actix_web::AppExt;
 use utoipa_swagger_ui::SwaggerUi;
+use uuid::Uuid;
 
 pub type AppState = Arc<AppStateInner>;
+pub type TaskUpdateType = BTreeSet<Uuid>;
 
-#[derive(Debug)]
 pub struct AppStateInner {
+    pub process_id: Uuid,
     pub database: Arc<Database>,
+    pub task_updates: UnboundedSender<TaskUpdateType>,
+    pub heartbeat_manager: Arc<HeartbeatManager>,
 }
 
 pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Result<()> {
@@ -53,6 +61,7 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
             .service(health)
             .configure(users::configure_routes)
             .configure(checks::configure_routes)
+            .configure(internal::configure_routes)
             .app_data(data.clone())
             .openapi_service(|api| {
                 SwaggerUi::new("/swagger-ui/{_:.*}").url("/api/openapi.json", api)
@@ -67,14 +76,34 @@ pub async fn start_server(state: AppState, listener: TcpListener) -> std::io::Re
 
 #[cfg(test)]
 pub async fn start_server_test(fixtures: Option<&str>) -> (u16, AppState) {
-    use crate::database::testing::create_test_database;
+    use std::time::Duration;
+
+    use crate::{database::testing::create_test_database, regions::Region};
+    use tokio::sync::mpsc;
+
+    let (task_updates, _rx) = mpsc::unbounded_channel();
 
     let (database, _) = create_test_database(fixtures)
         .await
         .expect("error creating database");
     let database = Arc::new(database);
 
-    let state = AppStateInner { database };
+    let process_id = Uuid::new_v4();
+    let state = AppStateInner {
+        process_id,
+        task_updates,
+        heartbeat_manager: Arc::new(
+            HeartbeatManager::new(
+                process_id,
+                Region::Fsn1,
+                Duration::from_secs(99999),
+                database.clone(),
+            )
+            .await
+            .unwrap(),
+        ),
+        database,
+    };
     let app_state: AppState = Arc::new(state);
 
     let listener = TcpListener::bind("0.0.0.0:0").expect("failed to bind to random port");

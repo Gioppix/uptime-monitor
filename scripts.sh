@@ -77,6 +77,7 @@ start_scylla() {
     --network scylla-net \
     -p 9042:9042 \
     -p 10000:10000 \
+    -v scylla1:/var/lib/scylla \
     scylladb/scylla:2025.2 \
     --cluster-name TestScyllaCluster \
     --listen-address scylla1 \
@@ -85,7 +86,7 @@ start_scylla() {
     --seeds scylla1 \
     --developer-mode 1 \
     --smp 8 \
-    --memory 4G
+    --memory 2G
 }
 
 reset_dev_database() {

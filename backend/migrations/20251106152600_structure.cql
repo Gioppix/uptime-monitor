@@ -100,3 +100,55 @@ CREATE TABLE IF NOT EXISTS workers_metadata
 
     PRIMARY KEY (process_id)
 );
+
+CREATE TABLE IF NOT EXISTS check_results_daily
+(
+    service_check_id         uuid,
+    region                   text,
+    day                      date,
+
+    total_checks             int,
+    successful_checks        int,
+    failed_checks            int,
+
+    avg_response_time_micros bigint,
+    min_response_time_micros bigint,
+    max_response_time_micros bigint,
+    p50_response_time_micros bigint,
+    p95_response_time_micros bigint,
+    p99_response_time_micros bigint,
+
+    status_code_distribution map<int, int>,
+
+    uptime_percent           decimal,
+
+    computed_at              timestamp,
+
+    PRIMARY KEY ((service_check_id, region), day)
+) WITH CLUSTERING ORDER BY (day DESC)
+   AND DEFAULT_TIME_TO_LIVE = 31536000; -- 1 year
+
+CREATE TABLE IF NOT EXISTS check_results_hourly
+(
+    service_check_id         uuid,
+    region                   text,
+    hour                     timestamp, -- Rounded to hour
+
+    total_checks             int,
+    successful_checks        int,
+    failed_checks            int,
+
+    avg_response_time_micros bigint,
+    min_response_time_micros bigint,
+    max_response_time_micros bigint,
+    p50_response_time_micros bigint,
+    p95_response_time_micros bigint,
+    p99_response_time_micros bigint,
+
+    uptime_percent           decimal,
+
+    computed_at              timestamp,
+
+    PRIMARY KEY ((service_check_id, region), hour)
+) WITH CLUSTERING ORDER BY (hour DESC)
+   AND DEFAULT_TIME_TO_LIVE = 2592000;

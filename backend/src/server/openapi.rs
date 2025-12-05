@@ -11,6 +11,7 @@ use utoipa::openapi::{
         (name = "health", description = "Health-related endpoints."),
         (name = "users", description = "User-related endpoints."),
         (name = "checks", description = "Health check management endpoints."),
+        (name = "internal", description = "Internal endpoints for backend-to-backend communication."),
     ),
     modifiers(&SecurityAddon),
 )]
@@ -27,6 +28,10 @@ impl utoipa::Modify for SecurityAddon {
             );
             components.add_security_scheme(
                 "bearer_auth",
+                SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+            );
+            components.add_security_scheme(
+                "internal_bearer",
                 SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
             );
         }

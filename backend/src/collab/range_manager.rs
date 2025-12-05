@@ -1,33 +1,36 @@
 use crate::collab::assignment::RingRange;
 use crate::collab::assignment::calculate_node_range;
-use crate::collab::heartbeat::HeartbeatManagerTrait;
+use crate::collab::heartbeat::Heartbeat;
+use crate::regions::Region;
 use anyhow::Result;
 use log::{error, info};
-use std::{sync::Arc, time::Duration};
-use tokio::sync::watch::{self, Receiver, Sender};
-use tokio::time;
+use std::collections::BTreeSet;
+use tokio::sync::watch;
 use uuid::Uuid;
 
 pub struct RangeManager {
     node_id: Uuid,
     replication_factor: u32,
+    region: Region,
 }
 
 impl RangeManager {
-    pub fn new(node_id: Uuid, replication_factor: u32) -> Self {
+    pub fn new(node_id: Uuid, replication_factor: u32, region: Region) -> Self {
         Self {
             node_id,
             replication_factor,
+            region,
         }
     }
 
-    async fn calculate_range<T: HeartbeatManagerTrait + Sync + Send>(
+    fn calculate_range(
         &self,
-        heartbeat: &T,
-        tx: &mut Sender<Option<RingRange>>,
+        current_state: &BTreeSet<Heartbeat>,
+        region: Region,
+        tx: &mut watch::Sender<Option<RingRange>>,
     ) -> Result<()> {
-        let current_state = heartbeat.get_alive_workers().await?;
-        let range = calculate_node_range(self.node_id, self.replication_factor, &current_state);
+        let range =
+            calculate_node_range(self.node_id, self.replication_factor, current_state, region);
         let old_range = *tx.borrow();
 
         if old_range != range {
@@ -46,24 +49,27 @@ impl RangeManager {
         Ok(())
     }
 
-    pub async fn start<T: HeartbeatManagerTrait + Sync + Send + 'static>(
+    pub async fn start(
         self,
-        interval: Duration,
-        heartbeat: Arc<T>,
-    ) -> (impl FnOnce(), Receiver<Option<RingRange>>) {
+        heartbeat_updates: watch::Receiver<BTreeSet<Heartbeat>>,
+    ) -> (impl FnOnce(), watch::Receiver<Option<RingRange>>) {
         let (mut tx, rx) = watch::channel(None);
 
         let task = tokio::spawn(async move {
-            let mut ticker = time::interval(interval);
+            let mut heartbeat_updates = heartbeat_updates;
+            // The value used to initialize the channel is always already marked as "seed",
+            // but we still want to process it to avoid having to wait the next heartbeat
+            let mut first = true;
 
-            loop {
-                let result = self.calculate_range(heartbeat.as_ref(), &mut tx).await;
+            while first || heartbeat_updates.changed().await.is_ok() {
+                first = false;
+
+                let current_state = heartbeat_updates.borrow_and_update();
+                let result = self.calculate_range(&current_state, self.region, &mut tx);
 
                 if let Err(e) = result {
                     error!("error calculating range: {e}");
                 }
-
-                ticker.tick().await;
             }
         });
 
@@ -81,26 +87,10 @@ impl RangeManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::collab::heartbeat::{Heartbeat, HeartbeatManagerTrait};
+    use crate::{collab::heartbeat::Heartbeat, regions::Region};
     use anyhow::Result;
-    use std::collections::BTreeSet;
+    use std::{collections::BTreeSet, time::Duration};
     use tokio::time::timeout;
-
-    struct DummyHeartbeatManager {
-        nodes: BTreeSet<Heartbeat>,
-    }
-
-    impl DummyHeartbeatManager {
-        fn new(nodes: BTreeSet<Heartbeat>) -> Self {
-            Self { nodes }
-        }
-    }
-
-    impl HeartbeatManagerTrait for DummyHeartbeatManager {
-        async fn get_alive_workers(&self) -> Result<BTreeSet<Heartbeat>> {
-            Ok(self.nodes.clone())
-        }
-    }
 
     #[tokio::test]
     async fn test_range_manager_start() -> Result<()> {
@@ -113,24 +103,26 @@ mod tests {
             node_id,
             position: 0,
             socket_address: None,
+            region: Region::Fsn1,
         });
         nodes.insert(Heartbeat {
             node_id: Uuid::new_v4(),
             position: 1,
             socket_address: None,
+            region: Region::Fsn1,
         });
         nodes.insert(Heartbeat {
             node_id: Uuid::new_v4(),
             position: 2,
             socket_address: None,
+            region: Region::Fsn1,
         });
 
-        let heartbeat = Arc::new(DummyHeartbeatManager::new(nodes));
-        let range_manager = RangeManager::new(node_id, replication_factor);
+        let range_manager = RangeManager::new(node_id, replication_factor, Region::Fsn1);
 
-        let (close_fn, mut rx) = range_manager
-            .start(Duration::from_millis(100), heartbeat)
-            .await;
+        let (_sender, alive_nodes_receiver) = watch::channel(nodes);
+
+        let (close_fn, mut rx) = range_manager.start(alive_nodes_receiver).await;
 
         // Wait for a message on the channel
         rx.changed().await.expect("Channel should receive a value");

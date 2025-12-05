@@ -2,10 +2,10 @@ import { api } from '$lib/api/client';
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
 import type { MetricsResponse } from '$lib/types';
+import { getMinuteDateRange24Hours } from '$lib/utils';
 
 export const load: PageLoad = async ({ params, fetch }) => {
-    const to = new Date().toISOString();
-    const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { from, to } = getMinuteDateRange24Hours();
 
     const metricsPromise = api.GET('/checks/{check_id}/metrics', {
         params: { path: { check_id: params.id }, query: { from, to } },

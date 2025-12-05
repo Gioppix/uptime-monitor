@@ -11,3 +11,16 @@ export type WithoutChild<T> = T extends { child?: any } ? Omit<T, 'child'> : T;
 export type WithoutChildren<T> = T extends { children?: any } ? Omit<T, 'children'> : T;
 export type WithoutChildrenOrChild<T> = WithoutChildren<WithoutChild<T>>;
 export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & { ref?: U | null };
+
+export function getMinuteDateRange24Hours() {
+    const now = new Date();
+    now.setSeconds(0, 0);
+
+    const endOfCurrentMinute = now.getTime() + 60 * 1000;
+    const twentyFourHoursAgo = endOfCurrentMinute - 24 * 60 * 60 * 1000;
+
+    return {
+        from: new Date(twentyFourHoursAgo).toISOString(),
+        to: new Date(endOfCurrentMinute).toISOString()
+    };
+}

@@ -50,10 +50,13 @@ locals {
   # Render .env file for each node
   backend_env_configs = {
     for idx, node in var.nodes : idx => <<-EOF
+SELF_IP="${hcloud_server_network.node_network_attachment[idx].ip}"
+
 DATABASE_NODE_URLS="${join(",", [for node_idx, node in hcloud_server_network.node_network_attachment : "${node.ip}:${var.scylla_cql_port}"])}"
 DATABASE_KEYSPACE="default_keyspace"
 DATABASE_CONCURRENT_REQUESTS="10"
 
+BACKEND_INTERNAL_PASSWORD="xxxx"
 COOKIE_KEY="xxxx"
 COOKIE_DOMAIN="${var.domain != "" ? ".${var.domain}" : ""}"
 
@@ -73,9 +76,7 @@ REPLICATION_FACTOR='2'
 
 MAX_CONCURRENT_HEALTH_CHECKS="100"
 
-REPLICAS_COMMON_KEY='secret'
-
-RUST_LOG=trace
+RUST_LOG=warn,backend=info
 
 REGION='${node.region}'
 EOF

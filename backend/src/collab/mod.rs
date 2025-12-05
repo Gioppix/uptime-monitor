@@ -12,15 +12,11 @@
 mod assignment;
 pub mod heartbeat;
 pub mod internode;
-mod network;
 pub mod range_manager;
 
 use crate::{
+    collab::{assignment::choose_new_node_position, heartbeat::HeartbeatManager},
     eager_env,
-    collab::{
-        assignment::choose_new_node_position,
-        heartbeat::{HeartbeatManager, HeartbeatManagerTrait},
-    },
 };
 use anyhow::Result;
 pub use assignment::{NodePosition, RingRange};
@@ -30,13 +26,14 @@ pub async fn decide_position(
     heartbeat: &HeartbeatManager,
     ring_size: NodePosition,
 ) -> Result<NodePosition> {
-    let state = heartbeat.get_alive_workers().await?;
+    let state = heartbeat.get_alive_workers_same_region().await?;
 
     let position = choose_new_node_position(&state, ring_size)?;
 
     Ok(position)
 }
 
+/// Returns `(bucket_version, bucket)` based on current env
 pub fn get_bucket_for_check(check_id: Uuid) -> (i16, i32) {
     let bucket = (check_id.as_u128() % (*eager_env::CURRENT_BUCKETS_COUNT as u128)) as i32;
 

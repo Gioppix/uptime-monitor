@@ -93,7 +93,8 @@ mod tests {
         }
 
         // Test: Specific region filter
-        let metrics_fsn1 = get_check_metrics(&db, check_id, Some(vec![Region::Fsn1]), from, to).await?;
+        let metrics_fsn1 =
+            get_check_metrics(&db, check_id, Some(vec![Region::Fsn1]), from, to).await?;
         assert_eq!(metrics_fsn1.by_region.len(), 1);
         assert_eq!(metrics_fsn1.by_region[0].region, Region::Fsn1);
         assert_eq!(metrics_fsn1.by_region[0].metrics.uptime_percent, 100.0);

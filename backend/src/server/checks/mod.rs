@@ -1,6 +1,13 @@
 mod metrics;
 
+use std::sync::Arc;
+
 use crate::{
+    collab::{
+        get_bucket_for_check,
+        heartbeat::HeartbeatManager,
+        internode::{MessageWithFilters, messages::InterNodeMessage, standard_broadcast},
+    },
     queries::{
         authorization::{
             CheckAccess, get_user_access_to_check, get_user_checks, grant_check_access,
@@ -16,6 +23,7 @@ use actix_web::{
     get, patch, post,
     web::{Data, Json, Path},
 };
+use log::error;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use utoipa_actix_web::{scope, service_config::ServiceConfig};
@@ -31,6 +39,24 @@ pub fn configure_routes(config: &mut ServiceConfig) {
             .service(delete_check_endpoint)
             .service(metrics::get_check_metrics_endpoint),
     );
+}
+
+fn broadcast_check_mutation(heartbeat_manager: Arc<HeartbeatManager>, check_id: Uuid) {
+    tokio::spawn(async move {
+        let bucket = get_bucket_for_check(check_id).1 as u32;
+        let result = standard_broadcast(
+            &heartbeat_manager,
+            vec![MessageWithFilters {
+                message: InterNodeMessage::ServiceCheckMutation { check_id },
+                filter_bucket: Some(bucket),
+            }],
+        )
+        .await;
+
+        if let Err(e) = result {
+            error!("Failed to broadcast check mutation: {}", e);
+        }
+    });
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -94,6 +120,8 @@ async fn create_check_endpoint(
     )
     .await
     .map_err(ErrorInternalServerError)?;
+
+    broadcast_check_mutation(app_state.heartbeat_manager.clone(), check.check_id);
 
     Ok(Json(check))
 }
@@ -254,6 +282,8 @@ async fn update_check_endpoint(
         .await
         .map_err(ErrorInternalServerError)?;
 
+    broadcast_check_mutation(app_state.heartbeat_manager.clone(), check_id);
+
     Ok(Json(check))
 }
 
@@ -309,6 +339,8 @@ async fn delete_check_endpoint(
     delete_check(&app_state.database, check_id)
         .await
         .map_err(ErrorInternalServerError)?;
+
+    broadcast_check_mutation(app_state.heartbeat_manager.clone(), check_id);
 
     Ok(HttpResponse::Ok().json(serde_json::json!({ "message": "Check deleted successfully" })))
 }

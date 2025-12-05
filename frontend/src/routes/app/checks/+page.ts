@@ -1,16 +1,13 @@
 import { api } from '$lib/api/client';
 import type { CheckWithMetrics } from '$lib/types';
+import { getMinuteDateRange24Hours } from '$lib/utils';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
     const checksResult = await api.GET('/checks/', { fetch });
     const checks = checksResult.data || [];
 
-    const now = new Date();
-    now.setSeconds(0, 0);
-    const to = now.toISOString();
-    const fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const from = fromDate.toISOString();
+    const { from, to } = getMinuteDateRange24Hours();
 
     const checksWithMetrics: CheckWithMetrics[] = await Promise.all(
         checks.map(async (check) => {

@@ -1,5 +1,5 @@
 use crate::{
-    collab::{NodePosition, RingRange},
+    collab::{NodePosition, RingRange, get_bucket_for_check},
     database::preparer::CachedPreparedStatement,
     eager_env,
     regions::Region,
@@ -11,7 +11,7 @@ use itertools::Itertools;
 use log::{error, warn};
 use scylla::{client::session::Session, response::query_result::QueryRowsResult};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use url::Url;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -135,6 +135,28 @@ static HEALTH_CHECKS_QUERY: CachedPreparedStatement = CachedPreparedStatement::n
     ",
 );
 
+static SPECIFIC_HEALTH_CHECKS_QUERY: CachedPreparedStatement = CachedPreparedStatement::new(
+    "
+    SELECT check_id,
+           check_name,
+           url,
+           http_method,
+           check_frequency_seconds,
+           timeout_seconds,
+           expected_status_code,
+           request_headers,
+           request_body,
+           is_enabled,
+           created_at,
+           region
+    FROM checks
+    WHERE region = ?
+      AND bucket_version = ?
+      AND bucket = ?
+      AND check_id IN ?
+    ",
+);
+
 pub async fn fetch_health_checks(
     session: &Session,
     region: Region,
@@ -156,6 +178,48 @@ pub async fn fetch_health_checks(
             warn!("Fetching bucket {bucket}");
             parse_service_check_rows(result)
         })
+        .buffer_unordered(*eager_env::DATABASE_CONCURRENT_REQUESTS)
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
+
+    Ok(all_checks)
+}
+
+pub async fn fetch_specific_health_checks(
+    session: &Session,
+    region: Region,
+    check_ids: &BTreeSet<Uuid>,
+) -> Result<Vec<ServiceCheck>> {
+    let region_str = region.to_identifier();
+
+    // Group checks by bucket
+    let buckets_map: HashMap<_, Vec<_>> = check_ids
+        .iter()
+        .map(|check_id| (get_bucket_for_check(*check_id), check_id))
+        .fold(HashMap::new(), |mut acc, (key, check_id)| {
+            acc.entry(key).or_default().push(*check_id);
+            acc
+        });
+
+    let all_checks = stream::iter(buckets_map)
+        .map(
+            |((bucket_version, bucket), check_ids_in_bucket)| async move {
+                let result = SPECIFIC_HEALTH_CHECKS_QUERY
+                    .execute_unpaged(
+                        session,
+                        (region_str, bucket_version, bucket, check_ids_in_bucket),
+                    )
+                    .await?
+                    .into_rows_result()?;
+
+                parse_service_check_rows(result)
+            },
+        )
         .buffer_unordered(*eager_env::DATABASE_CONCURRENT_REQUESTS)
         .collect::<Vec<_>>()
         .await

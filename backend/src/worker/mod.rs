@@ -2,31 +2,33 @@ mod check;
 mod fetch;
 
 use crate::{
-    collab::{NodePosition, RingRange},
+    collab::{NodePosition, RingRange, get_bucket_for_check},
     database::Database,
     eager_env,
     regions::Region,
+    server::TaskUpdateType,
     worker::{
         check::{execute::execute_check, save::ResultSaveManager},
-        fetch::{ServiceCheck, fetch_health_checks},
+        fetch::{ServiceCheck, fetch_health_checks, fetch_specific_health_checks},
     },
 };
 use anyhow::Result;
 use log::{error, info, trace, warn};
 use std::{
     cmp::Ordering,
-    collections::{BinaryHeap, HashSet},
+    collections::{BTreeSet, BinaryHeap, HashSet},
     sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::{
     sync::{
         Mutex, Semaphore,
-        mpsc::{self, UnboundedSender},
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
         watch::{self, Receiver},
     },
     time,
 };
+use uuid::Uuid;
 
 pub use fetch::Method;
 
@@ -70,6 +72,7 @@ impl Task {
     }
 }
 
+#[derive(Clone)]
 pub struct WorkerMetadata {
     region: Region,
     bucket_version: i16,
@@ -77,21 +80,24 @@ pub struct WorkerMetadata {
 }
 
 pub struct Worker {
+    database: Arc<Database>,
     metadata: WorkerMetadata,
     range_updates: Receiver<Option<RingRange>>,
     next_executions: Arc<Mutex<BinaryHeap<Task>>>,
     semaphore: Arc<Semaphore>,
     http_client: reqwest::Client,
     save_manager: ResultSaveManager,
+    task_updates: UnboundedReceiver<TaskUpdateType>,
 }
 
 impl Worker {
     pub async fn new(
-        db: Arc<Database>,
+        database: Arc<Database>,
         region: Region,
         bucket_version: i16,
         bucket_count: NodePosition,
         range_updates: Receiver<Option<RingRange>>,
+        task_updates: UnboundedReceiver<TaskUpdateType>,
     ) -> Result<Self> {
         let instance = Self {
             range_updates,
@@ -103,36 +109,40 @@ impl Worker {
             next_executions: Default::default(),
             semaphore: Arc::new(Semaphore::new(*eager_env::MAX_CONCURRENT_HEALTH_CHECKS)),
             http_client: reqwest::Client::new(),
-            save_manager: ResultSaveManager::new(db, region).await?,
+            save_manager: ResultSaveManager::new(database.clone(), region).await?,
+            database,
+            task_updates,
         };
 
         Ok(instance)
     }
 
-    pub fn start(self, session: Arc<Database>) -> impl Future<Output = ()> {
+    pub fn start(self) -> impl Future<Output = ()> {
         // Clone before moving `self`
-        let range_updates = self.range_updates.clone();
         let sync_task_next_executions = self.next_executions.clone();
         let work_task_next_executions = self.next_executions.clone();
         let semaphore = self.semaphore.clone();
         let http_client = self.http_client.clone();
-        let metadata = self.metadata;
         let save_manager = Arc::new(self.save_manager);
+        let mut task_updates = self.task_updates;
 
         let (queue_update_tx, queue_update_rx) = watch::channel(());
 
         // Thread that listens to changes
+        let metadata_ru = self.metadata.clone();
+        let queue_update_tx_ru = queue_update_tx.clone();
+        let database_ru = self.database.clone();
+        let mut range_updates_ru = self.range_updates.clone();
         let sync_task = tokio::spawn(async move {
-            let mut range_updates = range_updates.clone();
-            while range_updates.changed().await.is_ok() {
-                let range = *range_updates.borrow();
+            while range_updates_ru.changed().await.is_ok() {
+                let range = *range_updates_ru.borrow();
 
                 // Await here so that if the range updates in the meantime values are discarded,
                 // except the last one that will be read on the next iteration
                 let result = Self::handle_new_range(
-                    &metadata,
+                    &metadata_ru,
                     &sync_task_next_executions,
-                    session.clone(),
+                    &database_ru,
                     range,
                 )
                 .await;
@@ -141,7 +151,48 @@ impl Worker {
                     error!("error handling new range: {error}")
                 }
 
-                queue_update_tx.send_replace(());
+                queue_update_tx_ru.send_replace(());
+            }
+        });
+
+        // Thread that listens to task_updates and fetches/updates tasks
+        let metadata_tu = self.metadata.clone();
+        let database_tu = self.database.clone();
+        let next_executions_tu = self.next_executions.clone();
+        let range_updates_tu = self.range_updates.clone();
+        let update_task = tokio::spawn(async move {
+            while let Some(mut check_ids) = task_updates.recv().await {
+                check_ids = Self::filter_check_ids_by_range(check_ids, *range_updates_tu.borrow());
+
+                if check_ids.is_empty() {
+                    continue;
+                }
+
+                trace!(
+                    "Task update received for check_ids (filtered): {:?}",
+                    check_ids
+                );
+
+                // Fetch the actual ServiceCheck objects from database
+                let updated_checks = match fetch_specific_health_checks(
+                    &database_tu,
+                    metadata_tu.region,
+                    &check_ids,
+                )
+                .await
+                {
+                    Ok(n) => n,
+                    Err(e) => {
+                        error!("Failed to fetch updated health checks: {}", e);
+                        continue;
+                    }
+                };
+
+                let mut executions = next_executions_tu.lock().await;
+                Worker::update_tasks(&mut executions, &check_ids, updated_checks);
+                drop(executions);
+
+                let _ = queue_update_tx.send(());
             }
         });
 
@@ -181,6 +232,7 @@ impl Worker {
             work_task.abort();
             sync_task.abort();
             listen_task.abort();
+            update_task.abort();
 
             // TODO fix to wait at least the MAXIMUM_TIMEOUT
             tokio::time::sleep(Duration::from_secs(5)).await;
@@ -292,13 +344,13 @@ impl Worker {
     async fn handle_new_range(
         metadata: &WorkerMetadata,
         next_executions: &Arc<Mutex<BinaryHeap<Task>>>,
-        session: Arc<Database>,
+        session: &Database,
         range: Option<RingRange>,
     ) -> Result<()> {
         match range {
             Some(range) => {
                 let new_items = fetch_health_checks(
-                    &session,
+                    session,
                     metadata.region,
                     metadata.bucket_version,
                     range,
@@ -341,6 +393,60 @@ impl Worker {
                     details: item,
                 });
             }
+        }
+    }
+
+    /// Updates the task heap by removing deleted tasks and updating/inserting modified tasks.
+    ///
+    /// # Parameters
+    /// * `heap` - The binary heap of tasks to update
+    /// * `update_list` - Set of task IDs that were fetched/updated
+    /// * `fetched_tasks` - Vector of updated ServiceCheck objects to insert/update
+    fn update_tasks(
+        heap: &mut BinaryHeap<Task>,
+        update_list: &BTreeSet<Uuid>,
+        fetched_tasks: Vec<ServiceCheck>,
+    ) {
+        // Preserve execution times for tasks that are being updated
+        let mut preserved_execution_times = std::collections::HashMap::new();
+
+        let existing_tasks: Vec<Task> = heap.drain().collect();
+        for task in existing_tasks {
+            if update_list.contains(&task.details.check_id) {
+                // Task is being updated, preserve its execution time
+                preserved_execution_times.insert(task.details.check_id, task.last_execution_start);
+            } else {
+                // Task is not in update list, keep it as-is
+                heap.push(task);
+            }
+        }
+
+        // Insert/update tasks with preserved execution times where available
+        for check in fetched_tasks {
+            let last_execution_start = preserved_execution_times
+                .get(&check.check_id)
+                .copied()
+                .flatten();
+            heap.push(Task {
+                last_execution_start,
+                details: check,
+            });
+        }
+    }
+
+    /// Filters check IDs based on the current range assignment.
+    /// Returns only check IDs that belong to buckets within the assigned range.
+    /// If no range is assigned (None), returns an empty set.
+    fn filter_check_ids_by_range(
+        check_ids: BTreeSet<Uuid>,
+        range: Option<RingRange>,
+    ) -> BTreeSet<Uuid> {
+        match range {
+            Some(range) => check_ids
+                .into_iter()
+                .filter(|id| range.contains(get_bucket_for_check(*id).1 as u32))
+                .collect(),
+            None => Default::default(),
         }
     }
 }
@@ -453,7 +559,8 @@ mod tests {
         let session = Arc::new(session);
 
         let (_tx, rx) = watch::channel(None);
-        let worker = Worker::new(session.clone(), Region::Hel1, 1, 10, rx).await?;
+        let (_tx, task_update_rx) = mpsc::unbounded_channel();
+        let worker = Worker::new(session.clone(), Region::Hel1, 1, 10, rx, task_update_rx).await?;
 
         let check1_id = uuid!("00000000-0000-0000-0000-000000000001");
         let check2_id = uuid!("00000000-0000-0000-0000-000000000002");
@@ -494,7 +601,7 @@ mod tests {
         Worker::handle_new_range(
             &worker.metadata,
             &worker.next_executions,
-            session.clone(),
+            &session,
             Some(range),
         )
         .await?;
@@ -522,13 +629,7 @@ mod tests {
         }
 
         // Test with None range (should clear)
-        Worker::handle_new_range(
-            &worker.metadata,
-            &worker.next_executions,
-            session.clone(),
-            None,
-        )
-        .await?;
+        Worker::handle_new_range(&worker.metadata, &worker.next_executions, &session, None).await?;
 
         {
             let heap = worker.next_executions.lock().await;
@@ -686,5 +787,92 @@ mod tests {
             first.details.check_id,
             uuid!("00000000-0000-0000-0000-000000000001")
         );
+    }
+
+    fn create_check(
+        num: u128,
+        has_execution: bool,
+        heap: &mut BinaryHeap<Task>,
+    ) -> (uuid::Uuid, Option<Instant>) {
+        let now = Instant::now();
+        let check_id = uuid::Uuid::from_u128(num);
+        let check_last_execution = if has_execution {
+            Some(now - Duration::from_secs(10 * num as u64))
+        } else {
+            None
+        };
+        let mut check = ServiceCheck::example();
+        check.check_id = check_id;
+        heap.push(Task {
+            last_execution_start: check_last_execution,
+            details: check,
+        });
+        (check_id, check_last_execution)
+    }
+
+    #[tokio::test]
+    async fn test_update_tasks() {
+        let mut heap = BinaryHeap::new();
+
+        let (check1_id, check1_last_execution) = create_check(1, true, &mut heap);
+        let (check2_id, _check2_last_execution) = create_check(2, true, &mut heap);
+        let (check3_id, check3_last_execution) = create_check(3, false, &mut heap);
+
+        // Update check1 (preserve time), delete check2 (not in fetched), keep check3 (not in update list)
+        let mut update_list = BTreeSet::new();
+        update_list.insert(check1_id);
+        update_list.insert(check2_id);
+
+        let mut updated_check1 = ServiceCheck::example();
+        updated_check1.check_id = check1_id;
+        updated_check1.check_frequency_seconds = 999;
+
+        Worker::update_tasks(&mut heap, &update_list, vec![updated_check1]);
+
+        assert_eq!(heap.len(), 2);
+
+        let tasks: Vec<Task> = heap.drain().collect();
+        assert_eq!(tasks.len(), 2);
+        let task1 = tasks
+            .iter()
+            .find(|t| t.details.check_id == check1_id)
+            .unwrap();
+        let task3 = tasks
+            .iter()
+            .find(|t| t.details.check_id == check3_id)
+            .unwrap();
+
+        assert_eq!(task1.last_execution_start, check1_last_execution);
+        assert_eq!(task1.details.check_frequency_seconds, 999);
+        assert_eq!(task3.last_execution_start, check3_last_execution);
+    }
+
+    /// Attention: this uses CURRENT_BUCKETS_COUNT env; it supposes it's greater than 3
+    #[tokio::test]
+    async fn test_filter_check_ids_by_range() {
+        let check1_id = uuid!("00000000-0000-0000-0000-000000000001");
+        let check2_id = uuid!("00000000-0000-0000-0000-000000000002");
+        let check3_id = uuid!("00000000-0000-0000-0000-000000000003");
+
+        let mut check_ids = BTreeSet::new();
+        check_ids.insert(check1_id);
+        check_ids.insert(check2_id);
+        check_ids.insert(check3_id);
+
+        let range1 = RingRange { start: 0, end: 2 };
+        let filtered = Worker::filter_check_ids_by_range(check_ids.clone(), Some(range1));
+        assert_eq!(filtered, BTreeSet::from([check1_id]));
+
+        let range2 = RingRange { start: 0, end: 5 };
+        let filtered = Worker::filter_check_ids_by_range(check_ids.clone(), Some(range2));
+        assert_eq!(filtered, BTreeSet::from([check1_id, check2_id, check3_id]));
+
+        let range3 = RingRange { start: 2, end: 4 };
+        let filtered = Worker::filter_check_ids_by_range(check_ids.clone(), Some(range3));
+        assert_eq!(filtered, BTreeSet::from([check2_id, check3_id]));
+
+        // Test with None range
+        let filtered = Worker::filter_check_ids_by_range(check_ids.clone(), None);
+        assert!(filtered.is_empty());
     }
 }

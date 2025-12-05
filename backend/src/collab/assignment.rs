@@ -1,4 +1,5 @@
 use crate::collab::heartbeat::Heartbeat;
+use crate::regions::Region;
 use anyhow::Result;
 use anyhow::bail;
 use rand::rng;
@@ -92,8 +93,12 @@ pub fn calculate_node_range(
     node_id: Uuid,
     replication_factor: u32,
     current_state: &BTreeSet<Heartbeat>,
+    region: Region,
 ) -> Option<RingRange> {
-    let nodes: Vec<&Heartbeat> = current_state.iter().collect();
+    let nodes: Vec<&Heartbeat> = current_state
+        .iter()
+        .filter(|h| h.region == region)
+        .collect();
 
     // Find our position in the sorted list
     let our_idx = nodes.iter().position(|h| h.node_id == node_id)?;
@@ -125,6 +130,19 @@ impl RingRange {
             ring_size,
             current: self.start,
             done: false,
+        }
+    }
+
+    pub fn contains(&self, position: NodePosition) -> bool {
+        if self.start == self.end {
+            // Full ring coverage
+            true
+        } else if self.start < self.end {
+            // Normal range (no wrap)
+            position >= self.start && position < self.end
+        } else {
+            // Wrapped range
+            position >= self.start || position < self.end
         }
     }
 }
@@ -194,11 +212,44 @@ mod tests {
     }
 
     #[test]
+    fn test_contains() {
+        let range = RingRange { start: 10, end: 20 };
+        assert!(range.contains(10));
+        assert!(range.contains(11));
+        assert!(range.contains(19));
+        assert!(!range.contains(9));
+        assert!(!range.contains(20));
+        assert!(!range.contains(21));
+        assert!(!range.contains(999));
+
+        let range = RingRange { start: 90, end: 10 };
+        assert!(range.contains(0));
+        assert!(range.contains(9));
+        assert!(range.contains(90));
+        assert!(range.contains(91));
+        assert!(!range.contains(89));
+        assert!(!range.contains(10));
+        assert!(!range.contains(11));
+        assert!(!range.contains(50));
+
+        let range = RingRange { start: 50, end: 50 };
+        assert!(range.contains(0));
+        assert!(range.contains(50));
+        assert!(range.contains(100));
+        assert!(range.contains(999));
+    }
+
+    #[test]
     fn test_no_nodes_present() {
         let state = BTreeSet::new();
 
         assert_eq!(
-            calculate_node_range(uuid!("00000000-0000-0000-0000-000000000001"), 1, &state),
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000001"),
+                1,
+                &state,
+                Region::Fsn1
+            ),
             None
         );
     }
@@ -213,7 +264,12 @@ mod tests {
         });
 
         assert_eq!(
-            calculate_node_range(uuid!("00000000-0000-0000-0000-000000000001"), 1, &state),
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000001"),
+                1,
+                &state,
+                Region::Fsn1
+            ),
             Some(RingRange {
                 start: 100,
                 end: 100
@@ -231,7 +287,12 @@ mod tests {
         });
 
         assert_eq!(
-            calculate_node_range(uuid!("00000000-0000-0000-0000-000000000002"), 1, &state),
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000002"),
+                1,
+                &state,
+                Region::Fsn1
+            ),
             None
         );
     }
@@ -252,7 +313,12 @@ mod tests {
 
         // node2 wraps around to node1
         assert_eq!(
-            calculate_node_range(uuid!("00000000-0000-0000-0000-000000000002"), 1, &state),
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000002"),
+                1,
+                &state,
+                Region::Fsn1
+            ),
             Some(RingRange {
                 start: 200,
                 end: 100
@@ -280,7 +346,12 @@ mod tests {
         });
 
         assert_eq!(
-            calculate_node_range(uuid!("00000000-0000-0000-0000-000000000001"), 1, &state),
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000001"),
+                1,
+                &state,
+                Region::Fsn1
+            ),
             Some(RingRange {
                 start: 100,
                 end: 200
@@ -288,7 +359,12 @@ mod tests {
         );
 
         assert_eq!(
-            calculate_node_range(uuid!("00000000-0000-0000-0000-000000000001"), 2, &state),
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000001"),
+                2,
+                &state,
+                Region::Fsn1
+            ),
             Some(RingRange {
                 start: 100,
                 end: 300
@@ -297,7 +373,12 @@ mod tests {
 
         // Since replication_factor > N it should gracefully degrade to the whole range
         assert_eq!(
-            calculate_node_range(uuid!("00000000-0000-0000-0000-000000000001"), 3, &state),
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000001"),
+                3,
+                &state,
+                Region::Fsn1
+            ),
             Some(RingRange {
                 start: 100,
                 end: 100
@@ -306,7 +387,12 @@ mod tests {
 
         // Since replication_factor > N it should gracefully degrade to the whole range
         assert_eq!(
-            calculate_node_range(uuid!("00000000-0000-0000-0000-000000000001"), 30, &state),
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000001"),
+                30,
+                &state,
+                Region::Fsn1
+            ),
             Some(RingRange {
                 start: 100,
                 end: 100
@@ -352,6 +438,70 @@ mod tests {
             let percentage = (position as f64 / TEST_RING_SIZE as f64) * 100.0;
             println!("Chosen position: {} ({}%)", position, percentage.floor());
         }
+    }
+
+    #[test]
+    fn test_region_filter_in_calculate_node_range() {
+        let mut state = BTreeSet::new();
+        state.insert(Heartbeat {
+            node_id: uuid!("00000000-0000-0000-0000-000000000001"),
+            position: 100,
+            region: Region::Fsn1,
+            ..Heartbeat::example()
+        });
+        state.insert(Heartbeat {
+            node_id: uuid!("00000000-0000-0000-0000-000000000002"),
+            position: 200,
+            region: Region::Fsn1,
+            ..Heartbeat::example()
+        });
+        state.insert(Heartbeat {
+            node_id: uuid!("00000000-0000-0000-0000-000000000003"),
+            position: 300,
+            region: Region::Hel1,
+            ..Heartbeat::example()
+        });
+
+        // Node 1 in Fsn1 should only see node 2 (also in Fsn1), not node 3 (in Hel1)
+        assert_eq!(
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000001"),
+                1,
+                &state,
+                Region::Fsn1
+            ),
+            Some(RingRange {
+                start: 100,
+                end: 200
+            })
+        );
+
+        assert_eq!(
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000002"),
+                1,
+                &state,
+                Region::Fsn1
+            ),
+            Some(RingRange {
+                start: 200,
+                end: 100
+            })
+        );
+
+        // Node 3 in Hel1 should only see itself and cover the entire ring
+        assert_eq!(
+            calculate_node_range(
+                uuid!("00000000-0000-0000-0000-000000000003"),
+                1,
+                &state,
+                Region::Hel1
+            ),
+            Some(RingRange {
+                start: 300,
+                end: 300
+            })
+        );
     }
 
     #[test]

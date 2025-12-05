@@ -21,6 +21,11 @@ services:
             retries: 5
             start_period: 60s
         restart: unless-stopped
+        logging:
+            driver: json-file
+            options:
+                max-size: "10m"
+                max-file: "3"
         volumes:
             - /data:/var/lib/scylla
             - ./scylla.yaml:/etc/scylla/scylla.yaml:ro

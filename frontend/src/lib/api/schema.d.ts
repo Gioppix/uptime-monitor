@@ -108,6 +108,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["internal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/info/{user_id}": {
         parameters: {
             query?: never;
@@ -273,6 +289,17 @@ export interface components {
         RegionMetrics: components["schemas"]["MetricsSummary"] & {
             region: components["schemas"]["Region"];
         };
+        Vec: ({
+            ServiceCheckMutation: {
+                /** Format: uuid */
+                check_id: string;
+            };
+        } | {
+            ShuttingDown: {
+                /** Format: uuid */
+                process_id: string;
+            };
+        })[];
     };
     responses: never;
     parameters: never;
@@ -593,6 +620,35 @@ export interface operations {
         responses: {
             /** @description Health check */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    internal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Vec"];
+            };
+        };
+        responses: {
+            /** @description Internal endpoint success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - invalid or missing password */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

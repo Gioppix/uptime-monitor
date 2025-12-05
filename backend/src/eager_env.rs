@@ -1,5 +1,8 @@
 use std::env;
+use std::net::IpAddr;
 use std::sync::LazyLock;
+
+use crate::regions::Region;
 
 macro_rules! define_env_vars {
     ($(($name:ident, $env_name:expr, $type:ty)),* $(,)?) => {
@@ -32,6 +35,12 @@ macro_rules! define_env_vars {
 // Define all environment variables
 define_env_vars!(
     (PORT, "PORT", u16),
+    (SELF_IP, "SELF_IP", IpAddr),
+    (
+        BACKEND_INTERNAL_PASSWORD,
+        "BACKEND_INTERNAL_PASSWORD",
+        String
+    ),
     (DATABASE_NODE_URLS, "DATABASE_NODE_URLS", String),
     (DATABASE_KEYSPACE, "DATABASE_KEYSPACE", String),
     (
@@ -57,6 +66,5 @@ define_env_vars!(
         "MAX_CONCURRENT_HEALTH_CHECKS",
         usize
     ),
-    (REPLICAS_COMMON_KEY, "REPLICAS_COMMON_KEY", String),
-    (REGION, "REGION", String),
+    (REGION, "REGION", Region),
 );
