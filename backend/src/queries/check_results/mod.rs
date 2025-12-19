@@ -131,7 +131,7 @@ pub async fn get_check_metrics_graph(
         let by_region = calculate_by_region_metrics(&raw_results);
 
         // If the range is completed (to <= now), write to cache
-        if to <= Utc::now() {
+        if range_to <= Utc::now() {
             queries::insert_cached_check_result(db, check_id, *date, &by_region, granularity)
                 .await?;
         }

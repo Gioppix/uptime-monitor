@@ -406,10 +406,11 @@ pub async fn insert_daily_cached_check_result(
     Ok(())
 }
 
+/// ``
 pub async fn insert_cached_check_result(
     db: &Database,
     check_id: Uuid,
-    date: DateTime<Utc>,
+    date_from: DateTime<Utc>,
     summaries: &HashMap<Region, MetricsSummary>,
     granularity: GraphGranularity,
 ) -> Result<()> {
@@ -418,12 +419,24 @@ pub async fn insert_cached_check_result(
         .map(|(region, metrics_summary)| async move {
             match granularity {
                 GraphGranularity::Hourly => {
-                    insert_hourly_cached_check_result(db, check_id, *region, date, metrics_summary)
-                        .await
+                    insert_hourly_cached_check_result(
+                        db,
+                        check_id,
+                        *region,
+                        date_from,
+                        metrics_summary,
+                    )
+                    .await
                 }
                 GraphGranularity::Daily => {
-                    insert_daily_cached_check_result(db, check_id, *region, date, metrics_summary)
-                        .await
+                    insert_daily_cached_check_result(
+                        db,
+                        check_id,
+                        *region,
+                        date_from,
+                        metrics_summary,
+                    )
+                    .await
                 }
             }
         });
