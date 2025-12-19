@@ -1,5 +1,5 @@
 mod auth;
-mod checks;
+pub mod checks;
 mod health;
 mod internal;
 mod openapi;

@@ -1,3 +1,4 @@
+use crate::queries::check_results::GraphGranularity;
 use crate::server::auth::SESSION_COOKIE_NAME;
 use utoipa::OpenApi;
 use utoipa::openapi::{
@@ -14,6 +15,7 @@ use utoipa::openapi::{
         (name = "internal", description = "Internal endpoints for backend-to-backend communication."),
     ),
     modifiers(&SecurityAddon),
+    components(schemas(GraphGranularity)), // Auto registering fails
 )]
 pub struct ApiDoc;
 

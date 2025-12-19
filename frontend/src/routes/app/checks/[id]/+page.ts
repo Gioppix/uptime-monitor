@@ -1,14 +1,26 @@
 import { api } from '$lib/api/client';
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
-import type { MetricsResponse } from '$lib/types';
-import { getMinuteDateRange24Hours } from '$lib/utils';
+import { getGraphTimes, getMinuteDateRange24Hours } from '$lib/utils';
 
 export const load: PageLoad = async ({ params, fetch }) => {
     const { from, to } = getMinuteDateRange24Hours();
 
     const metricsPromise = api.GET('/checks/{check_id}/metrics', {
         params: { path: { check_id: params.id }, query: { from, to } },
+        fetch
+    });
+
+    const { from: graphFrom, to: graphTo } = getGraphTimes({
+        granularity: 'Hourly',
+        days: 1
+    });
+
+    const defaultGraphPromise = api.GET('/checks/{check_id}/metrics/graph', {
+        params: {
+            path: { check_id: params.id },
+            query: { from: graphFrom, to: graphTo, granularity: 'Hourly' }
+        },
         fetch
     });
 
@@ -25,12 +37,12 @@ export const load: PageLoad = async ({ params, fetch }) => {
     }
 
     const check = checkResult.data;
-    let metrics: MetricsResponse | undefined;
 
-    if (check.is_enabled) {
-        const metricsResult = await metricsPromise;
-        metrics = metricsResult.data;
+    if (!check.is_enabled) {
+        return { check };
     }
 
-    return { check, metrics };
+    const [defaultGraph, metricsResult] = await Promise.all([defaultGraphPromise, metricsPromise]);
+
+    return { check, metrics: metricsResult.data, defaultGraph: defaultGraph.data };
 };

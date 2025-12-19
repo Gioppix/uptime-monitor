@@ -1,7 +1,10 @@
 use crate::{
     queries::{
         authorization::get_user_access_to_check,
-        check_results::{MetricsResponse, get_check_metrics},
+        check_results::{
+            GraphGranularity, MetricsResponse, MetricsResponseDate, get_check_metrics,
+            get_check_metrics_graph, is_rounded_to_granularity,
+        },
     },
     regions::Region,
     server::{AppState, auth::AuthenticatedUser},
@@ -14,8 +17,7 @@ use actix_web::{
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use std::env;
-use std::str::FromStr;
+use strum::IntoEnumIterator;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -29,12 +31,7 @@ pub struct MetricsQuery {
     pub regions: Option<String>,
 }
 
-fn get_max_days() -> i64 {
-    env::var("CHECK_RESULTS_MAX_DAYS")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(90)
-}
+const CHECK_RESULTS_MAX_DAYS: u32 = 90;
 
 #[utoipa::path(
     summary = "Get check metrics",
@@ -81,33 +78,15 @@ pub async fn get_check_metrics_endpoint(
     }
 
     // Validate time range doesn't exceed max days
-    let max_days = get_max_days();
     let duration = query.to - query.from;
-    if duration.num_days() > max_days {
+    if duration.num_days() > CHECK_RESULTS_MAX_DAYS.into() {
         return Err(ErrorBadRequest(format!(
             "Time range cannot exceed {} days",
-            max_days
+            CHECK_RESULTS_MAX_DAYS
         )));
     }
 
-    // Parse and validate regions
-    let regions = match &query.regions {
-        Some(regions_str) => {
-            let region_strs: Vec<&str> = regions_str.split(',').map(|s| s.trim()).collect();
-            if region_strs.is_empty() {
-                return Err(ErrorBadRequest("regions parameter cannot be empty"));
-            }
-            let mut regions = Vec::new();
-            for r in region_strs {
-                regions.push(
-                    Region::from_str(r)
-                        .map_err(|_| ErrorBadRequest(format!("Invalid region: {}", r)))?,
-                );
-            }
-            Some(regions)
-        }
-        None => None,
-    };
+    let regions = parse_regions(query.regions.as_ref()).map_err(ErrorBadRequest)?;
 
     // Check user access
     let access = get_user_access_to_check(&app_state.database, user_id, check_id)
@@ -120,9 +99,130 @@ pub async fn get_check_metrics_endpoint(
     }
 
     // Get metrics
-    let metrics = get_check_metrics(&app_state.database, check_id, regions, query.from, query.to)
-        .await
-        .map_err(ErrorInternalServerError)?;
+    let metrics = get_check_metrics(
+        &app_state.database,
+        check_id,
+        &regions,
+        query.from,
+        query.to,
+    )
+    .await
+    .map_err(ErrorInternalServerError)?;
 
     Ok(Json(metrics))
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct MetricsGraphQuery {
+    #[serde(flatten)]
+    pub query: MetricsQuery,
+    pub granularity: GraphGranularity,
+}
+
+#[utoipa::path(
+    summary = "Get check metrics graph",
+    description = "Get time-series metrics data for a check with specified granularity",
+    params(
+        ("check_id" = Uuid, Path, description = "Check ID"),
+        ("from" = DateTime<Utc>, Query, description = "Start timestamp, included (ISO 8601, must be rounded to granularity)"),
+        ("to" = DateTime<Utc>, Query, description = "End timestamp, excluded (ISO 8601, exclusive, must be rounded to granularity)"),
+        ("regions" = Option<String>, Query, description = "Comma-separated list of regions to filter by"),
+        ("granularity" = GraphGranularity, Query, description = "Time granularity for data points"),
+    ),
+    responses(
+        (status = 200, description = "Metrics graph data retrieved successfully", body = Vec<MetricsResponseDate>),
+        (status = 400, description = "Invalid query parameters"),
+        (status = 403, description = "Forbidden - no access to check"),
+        (status = 404, description = "Check not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(
+        ("cookie_auth" = []),
+        ("bearer_auth" = [])
+    ),
+    tags = ["checks"],
+    operation_id = "getCheckMetricsGraph"
+)]
+#[get("/{check_id}/metrics/graph")]
+pub async fn get_check_metrics_graph_endpoint(
+    check_id: Path<Uuid>,
+    query: Query<MetricsGraphQuery>,
+    app_state: Data<AppState>,
+    auth: AuthenticatedUser,
+) -> Result<Json<Vec<MetricsResponseDate>>, Error> {
+    if query.query.from >= query.query.to {
+        return Err(ErrorBadRequest("'from' must be before 'to'"));
+    }
+
+    if !is_rounded_to_granularity(query.query.from, query.granularity) {
+        return Err(ErrorBadRequest(
+            "'from' timestamp must be rounded to the specified granularity",
+        ));
+    }
+    if !is_rounded_to_granularity(query.query.to, query.granularity) {
+        return Err(ErrorBadRequest(
+            "'to' timestamp must be rounded to the specified granularity",
+        ));
+    }
+
+    let check_id = check_id.into_inner();
+    let user_id = match auth {
+        AuthenticatedUser::User(session) => session.user_id,
+        AuthenticatedUser::Api(_) => {
+            // TODO: Check API key permissions
+            todo!("API key check metrics not yet implemented")
+        }
+    };
+
+    // Validate time range doesn't exceed max days
+    let duration = query.query.to - query.query.from;
+    if duration.num_days() > CHECK_RESULTS_MAX_DAYS.into() {
+        return Err(ErrorBadRequest(format!(
+            "Time range cannot exceed {} days",
+            CHECK_RESULTS_MAX_DAYS
+        )));
+    }
+
+    let regions = parse_regions(query.query.regions.as_ref()).map_err(ErrorBadRequest)?;
+
+    // Check user access
+    let access = get_user_access_to_check(&app_state.database, user_id, check_id)
+        .await
+        .map_err(ErrorInternalServerError)?
+        .ok_or_else(|| ErrorForbidden("No access to this check"))?;
+
+    if !access.can_see {
+        return Err(ErrorForbidden("No permission to view this check"));
+    }
+
+    // Get metrics
+    let metrics = get_check_metrics_graph(
+        &app_state.database,
+        check_id,
+        &regions,
+        query.query.from,
+        query.query.to,
+        query.granularity,
+    )
+    .await
+    .map_err(ErrorInternalServerError)?;
+
+    Ok(Json(metrics))
+}
+
+fn parse_regions(regions_str: Option<&String>) -> Result<Vec<Region>, &'static str> {
+    match regions_str {
+        Some(regions_str) => {
+            let region_strings: Vec<&str> = regions_str.split(',').map(|s| s.trim()).collect();
+            if region_strings.is_empty() {
+                return Err("regions parameter cannot be empty");
+            }
+            let mut regions = Vec::new();
+            for r in region_strings {
+                regions.push(serde_plain::from_str(r).map_err(|_| "Invalid region")?);
+            }
+            Ok(regions)
+        }
+        None => Ok(Region::iter().collect()),
+    }
 }

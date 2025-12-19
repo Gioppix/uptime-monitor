@@ -1,4 +1,4 @@
-mod metrics;
+pub mod metrics;
 
 use std::sync::Arc;
 
@@ -37,7 +37,8 @@ pub fn configure_routes(config: &mut ServiceConfig) {
             .service(list_my_checks)
             .service(update_check_endpoint)
             .service(delete_check_endpoint)
-            .service(metrics::get_check_metrics_endpoint),
+            .service(metrics::get_check_metrics_endpoint)
+            .service(metrics::get_check_metrics_graph_endpoint),
     );
 }
 

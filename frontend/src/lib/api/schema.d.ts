@@ -92,6 +92,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/checks/{check_id}/metrics/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get check metrics graph
+         * @description Get time-series metrics data for a check with specified granularity
+         */
+        get: operations["getCheckMetricsGraph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -260,6 +280,8 @@ export interface components {
             password: string;
             username: string;
         };
+        /** @enum {string} */
+        GraphGranularity: "Hourly" | "Daily";
         LoginRequest: {
             password: string;
             username: string;
@@ -267,16 +289,37 @@ export interface components {
         /** @enum {string} */
         Method: "GET" | "POST" | "PUT" | "DELETE" | "HEAD";
         MetricsResponse: components["schemas"]["MetricsSummary"] & {
-            by_region: components["schemas"]["RegionMetrics"][];
+            by_region: {
+                [key: string]: components["schemas"]["MetricsSummary"];
+            };
+        };
+        MetricsResponseDate: {
+            by_region: {
+                [key: string]: components["schemas"]["MetricsSummary"];
+            };
+            /** Format: date-time */
+            date: string;
         };
         MetricsSummary: {
-            /** Format: double */
-            avg_response_time_ms: number;
-            /** Format: double */
-            p95_response_time_ms: number;
-            /** Format: double */
-            p99_response_time_ms: number;
-            /** Format: double */
+            /** Format: int64 */
+            avg_response_time_micros: number;
+            /** Format: int32 */
+            failed_checks: number;
+            /** Format: int64 */
+            max_response_time_micros: number;
+            /** Format: int64 */
+            min_response_time_micros: number;
+            /** Format: int64 */
+            p50_response_time_micros: number;
+            /** Format: int64 */
+            p95_response_time_micros: number;
+            /** Format: int64 */
+            p99_response_time_micros: number;
+            /** Format: int32 */
+            successful_checks: number;
+            /** Format: int32 */
+            total_checks: number;
+            /** Format: float */
             uptime_percent: number;
         };
         PublicUser: {
@@ -286,9 +329,6 @@ export interface components {
         };
         /** @enum {string} */
         Region: "Fsn1" | "Hel1" | "Nbg1";
-        RegionMetrics: components["schemas"]["MetricsSummary"] & {
-            region: components["schemas"]["Region"];
-        };
         Vec: ({
             ServiceCheckMutation: {
                 /** Format: uuid */
@@ -577,6 +617,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetricsResponse"];
+                };
+            };
+            /** @description Invalid query parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden - no access to check */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Check not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCheckMetricsGraph: {
+        parameters: {
+            query: {
+                /** @description Start timestamp, included (ISO 8601, must be rounded to granularity) */
+                from: string;
+                /** @description End timestamp, excluded (ISO 8601, exclusive, must be rounded to granularity) */
+                to: string;
+                /** @description Comma-separated list of regions to filter by */
+                regions?: string;
+                /** @description Time granularity for data points */
+                granularity: components["schemas"]["GraphGranularity"];
+            };
+            header?: never;
+            path: {
+                /** @description Check ID */
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metrics graph data retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponseDate"][];
                 };
             };
             /** @description Invalid query parameters */

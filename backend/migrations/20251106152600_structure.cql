@@ -107,7 +107,6 @@ CREATE TABLE IF NOT EXISTS check_results_daily
     region                   text,
     day                      date,
 
-    total_checks             int,
     successful_checks        int,
     failed_checks            int,
 
@@ -120,7 +119,7 @@ CREATE TABLE IF NOT EXISTS check_results_daily
 
     status_code_distribution map<int, int>,
 
-    uptime_percent           decimal,
+    uptime_percent           float,
 
     computed_at              timestamp,
 
@@ -132,9 +131,8 @@ CREATE TABLE IF NOT EXISTS check_results_hourly
 (
     service_check_id         uuid,
     region                   text,
-    hour                     timestamp, -- Rounded to hour
+    hour                     timestamp, -- First instant of the relevant hour, e.g. 2025-12-16T17:00:00.000Z
 
-    total_checks             int,
     successful_checks        int,
     failed_checks            int,
 
@@ -145,10 +143,10 @@ CREATE TABLE IF NOT EXISTS check_results_hourly
     p95_response_time_micros bigint,
     p99_response_time_micros bigint,
 
-    uptime_percent           decimal,
+    uptime_percent           float,
 
     computed_at              timestamp,
 
-    PRIMARY KEY ((service_check_id, region), hour)
+    PRIMARY KEY ((service_check_id, region), hour) -- We should break down this partition, but 100k entries is 11 years
 ) WITH CLUSTERING ORDER BY (hour DESC)
    AND DEFAULT_TIME_TO_LIVE = 2592000;

@@ -346,6 +346,101 @@
         ]
       }
     },
+    "/checks/{check_id}/metrics/graph": {
+      "get": {
+        "tags": [
+          "checks"
+        ],
+        "summary": "Get check metrics graph",
+        "description": "Get time-series metrics data for a check with specified granularity",
+        "operationId": "getCheckMetricsGraph",
+        "parameters": [
+          {
+            "name": "check_id",
+            "in": "path",
+            "description": "Check ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp, included (ISO 8601, must be rounded to granularity)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp, excluded (ISO 8601, exclusive, must be rounded to granularity)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "regions",
+            "in": "query",
+            "description": "Comma-separated list of regions to filter by",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "description": "Time granularity for data points",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/GraphGranularity"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metrics graph data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MetricsResponseDate"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters"
+          },
+          "403": {
+            "description": "Forbidden - no access to check"
+          },
+          "404": {
+            "description": "Check not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "cookie_auth": []
+          },
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -699,6 +794,13 @@
           }
         }
       },
+      "GraphGranularity": {
+        "type": "string",
+        "enum": [
+          "Hourly",
+          "Daily"
+        ]
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -736,39 +838,107 @@
             ],
             "properties": {
               "by_region": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/RegionMetrics"
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/MetricsSummary"
+                },
+                "propertyNames": {
+                  "type": "string",
+                  "enum": [
+                    "Fsn1",
+                    "Hel1",
+                    "Nbg1"
+                  ]
                 }
               }
             }
           }
         ]
       },
+      "MetricsResponseDate": {
+        "type": "object",
+        "required": [
+          "by_region",
+          "date"
+        ],
+        "properties": {
+          "by_region": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MetricsSummary"
+            },
+            "propertyNames": {
+              "type": "string",
+              "enum": [
+                "Fsn1",
+                "Hel1",
+                "Nbg1"
+              ]
+            }
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "MetricsSummary": {
         "type": "object",
         "required": [
           "uptime_percent",
-          "avg_response_time_ms",
-          "p95_response_time_ms",
-          "p99_response_time_ms"
+          "total_checks",
+          "successful_checks",
+          "failed_checks",
+          "avg_response_time_micros",
+          "min_response_time_micros",
+          "max_response_time_micros",
+          "p50_response_time_micros",
+          "p95_response_time_micros",
+          "p99_response_time_micros"
         ],
         "properties": {
-          "avg_response_time_ms": {
-            "type": "number",
-            "format": "double"
+          "avg_response_time_micros": {
+            "type": "integer",
+            "format": "int64"
           },
-          "p95_response_time_ms": {
-            "type": "number",
-            "format": "double"
+          "failed_checks": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           },
-          "p99_response_time_ms": {
-            "type": "number",
-            "format": "double"
+          "max_response_time_micros": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "min_response_time_micros": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "p50_response_time_micros": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "p95_response_time_micros": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "p99_response_time_micros": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "successful_checks": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "total_checks": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           },
           "uptime_percent": {
             "type": "number",
-            "format": "double"
+            "format": "float"
           }
         }
       },
@@ -794,24 +964,6 @@
           "Fsn1",
           "Hel1",
           "Nbg1"
-        ]
-      },
-      "RegionMetrics": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/MetricsSummary"
-          },
-          {
-            "type": "object",
-            "required": [
-              "region"
-            ],
-            "properties": {
-              "region": {
-                "$ref": "#/components/schemas/Region"
-              }
-            }
-          }
         ]
       },
       "Vec": {

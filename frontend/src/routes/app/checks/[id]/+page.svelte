@@ -9,6 +9,7 @@
     import ArrowLeft from '@lucide/svelte/icons/arrow-left';
     import Pencil from '@lucide/svelte/icons/pencil';
     import Trash2 from '@lucide/svelte/icons/trash-2';
+    import MainGraph from '$lib/components/uptime-graphs/main-uptime-graph.svelte';
     import type { PageData } from './$types';
 
     let { data }: { data: PageData } = $props();
@@ -60,6 +61,8 @@
     {#if data.metrics}
         <CheckMetrics metrics={data.metrics} expectedRegions={data.check.regions} />
     {/if}
+
+    <MainGraph graphData={data.defaultGraph} />
 </div>
 
 <CheckDialog bind:open={showEditDialog} check={data.check} />

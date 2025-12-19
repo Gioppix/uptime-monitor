@@ -212,16 +212,16 @@
             <div>
                 <h4 class="font-semibold">Product</h4>
                 <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
-                    <li><a href="#" class="hover:underline">Features</a></li>
-                    <li><a href="#" class="hover:underline">Pricing</a></li>
-                    <li><a href="#" class="hover:underline">Integrations</a></li>
-                    <li><a href="#" class="hover:underline">Changelog</a></li>
+                    <li><span class="hover:underline">Features</span></li>
+                    <li><span class="hover:underline">Pricing</span></li>
+                    <li><span class="hover:underline">Integrations</span></li>
+                    <li><span class="hover:underline">Changelog</span></li>
                 </ul>
             </div>
             <div>
                 <h4 class="font-semibold">Resources</h4>
                 <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
-                    <li><a href="#" class="hover:underline">Documentation</a></li>
+                    <li><span class="hover:underline">Documentation</span></li>
                     <li>
                         <a
                             href="{env.PUBLIC_BACKEND_URL}/swagger-ui/"
@@ -229,25 +229,25 @@
                             class="underline hover:no-underline">API Reference</a
                         >
                     </li>
-                    <li><a href="#" class="hover:underline">Status Page</a></li>
-                    <li><a href="#" class="hover:underline">Blog</a></li>
+                    <li><span class="hover:underline">Status Page</span></li>
+                    <li><span class="hover:underline">Blog</span></li>
                 </ul>
             </div>
             <div>
                 <h4 class="font-semibold">Company</h4>
                 <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
-                    <li><a href="#" class="hover:underline">About</a></li>
-                    <li><a href="#" class="hover:underline">Careers</a></li>
-                    <li><a href="#" class="hover:underline">Contact</a></li>
-                    <li><a href="#" class="hover:underline">Press Kit</a></li>
+                    <li><span class="hover:underline">About</span></li>
+                    <li><span class="hover:underline">Careers</span></li>
+                    <li><span class="hover:underline">Contact</span></li>
+                    <li><span class="hover:underline">Press Kit</span></li>
                 </ul>
             </div>
             <div>
                 <h4 class="font-semibold">Legal</h4>
                 <ul class="mt-4 space-y-2 text-sm text-muted-foreground">
-                    <li><a href="#" class="hover:underline">Privacy Policy</a></li>
-                    <li><a href="#" class="hover:underline">Terms of Service</a></li>
-                    <li><a href="#" class="hover:underline">Cookie Policy</a></li>
+                    <li><span class="hover:underline">Privacy Policy</span></li>
+                    <li><span class="hover:underline">Terms of Service</span></li>
+                    <li><span class="hover:underline">Cookie Policy</span></li>
                     <li>
                         <a href={resolve('/gdpr')} class="underline hover:no-underline">GDPR</a>
                     </li>

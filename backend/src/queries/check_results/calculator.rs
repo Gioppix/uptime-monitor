@@ -1,5 +1,5 @@
+use super::MetricsSummary;
 use super::queries::CheckResultRow;
-use super::{MetricsSummary, RegionMetrics};
 use crate::regions::Region;
 use chrono::Duration;
 use statrs::statistics::{Data, OrderStatistics, Statistics};
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 /// The bounds are defined by the first and last check timestamps.
 ///
 /// **Expects data sorted by `check_started_at` in ascending order.**
-fn calculate_uptime_percent<T>(sorted: &[T]) -> f64
+fn calculate_uptime_percent<T>(sorted: &[T]) -> f32
 where
     T: Borrow<CheckResultRow>,
 {
@@ -34,7 +34,7 @@ where
                     .iter()
                     .filter(|r| Borrow::<CheckResultRow>::borrow(*r).matches_expected)
                     .count();
-                return (successful as f64 / sorted.len() as f64) * 100.0;
+                return (successful as f32 / sorted.len() as f32) * 100.0;
             }
 
             // Calculate uptime by weighting each check by its time interval
@@ -47,7 +47,7 @@ where
                 })
                 .sum();
 
-            (uptime_duration.num_milliseconds() as f64 / total_duration.num_milliseconds() as f64)
+            (uptime_duration.num_milliseconds() as f32 / total_duration.num_milliseconds() as f32)
                 * 100.0
         }
     }
@@ -70,9 +70,15 @@ where
     if sorted.is_empty() {
         return MetricsSummary {
             uptime_percent: 0.0,
-            avg_response_time_ms: 0.0,
-            p95_response_time_ms: 0.0,
-            p99_response_time_ms: 0.0,
+            total_checks: 0,
+            successful_checks: 0,
+            failed_checks: 0,
+            avg_response_time_micros: 0,
+            min_response_time_micros: 0,
+            max_response_time_micros: 0,
+            p50_response_time_micros: 0,
+            p95_response_time_micros: 0,
+            p99_response_time_micros: 0,
         };
     }
 
@@ -83,23 +89,42 @@ where
         .map(|r| r.borrow().response_time_micros as f64)
         .collect();
 
-    let avg_response_time_ms = Statistics::mean(&response_times) / 1000.0;
+    let avg_response_time_micros = Statistics::mean(&response_times) as i64;
+    let min_response_time_micros =
+        response_times.iter().cloned().fold(f64::INFINITY, f64::min) as i64;
+    let max_response_time_micros = response_times
+        .iter()
+        .cloned()
+        .fold(f64::NEG_INFINITY, f64::max) as i64;
 
     let mut data = Data::new(response_times);
-    let p95_response_time_ms = data.percentile(95) / 1000.0;
-    let p99_response_time_ms = data.percentile(99) / 1000.0;
+    let p50_response_time_micros = data.percentile(50) as i64;
+    let p95_response_time_micros = data.percentile(95) as i64;
+    let p99_response_time_micros = data.percentile(99) as i64;
+
+    let successful_checks = sorted
+        .iter()
+        .filter(|&r| r.borrow().matches_expected)
+        .count() as u32;
+    let failed_checks = sorted.len() as u32 - successful_checks;
 
     MetricsSummary {
         uptime_percent,
-        avg_response_time_ms,
-        p95_response_time_ms,
-        p99_response_time_ms,
+        total_checks: sorted.len() as u32,
+        successful_checks,
+        failed_checks,
+        avg_response_time_micros,
+        min_response_time_micros,
+        max_response_time_micros,
+        p50_response_time_micros,
+        p95_response_time_micros,
+        p99_response_time_micros,
     }
 }
 
 /// Calculate overall metrics across all results.
 ///
-/// **Expects data sorted by `check_started_at` in ascending order.**
+/// **Expects data sorted by `check_started_at` in ascending order**.
 pub fn calculate_overall_metrics(sorted: &[CheckResultRow]) -> MetricsSummary {
     debug_assert!(
         sorted
@@ -114,7 +139,7 @@ pub fn calculate_overall_metrics(sorted: &[CheckResultRow]) -> MetricsSummary {
 /// Calculate metrics grouped by region.
 ///
 /// **Expects data sorted by `check_started_at` in ascending order.**
-pub fn calculate_by_region_metrics(sorted: &[CheckResultRow]) -> Vec<RegionMetrics> {
+pub fn calculate_by_region_metrics(sorted: &[CheckResultRow]) -> HashMap<Region, MetricsSummary> {
     debug_assert!(
         sorted
             .windows(2)
@@ -131,18 +156,12 @@ pub fn calculate_by_region_metrics(sorted: &[CheckResultRow]) -> Vec<RegionMetri
         },
     );
 
-    // Calculate metrics for each region and sort
-    let mut region_metrics: Vec<_> = by_region
+    // Calculate metrics for each region
+    by_region
         .into_iter()
         .filter(|(_, results)| !results.is_empty())
-        .map(|(region, region_results)| RegionMetrics {
-            region,
-            metrics: calculate_metrics(&region_results),
-        })
-        .collect();
-
-    region_metrics.sort_by_key(|r| r.region);
-    region_metrics
+        .map(|(region, region_results)| (region, calculate_metrics(&region_results)))
+        .collect()
 }
 
 #[cfg(test)]
@@ -178,9 +197,9 @@ mod tests {
         let metrics = calculate_overall_metrics(&results);
 
         assert_eq!(metrics.uptime_percent, 100.0);
-        assert_eq!(metrics.avg_response_time_ms, 150.0); // (100+150+200)/3 = 150
-        assert!(metrics.p95_response_time_ms > 0.0);
-        assert!(metrics.p99_response_time_ms >= metrics.p95_response_time_ms);
+        assert_eq!(metrics.avg_response_time_micros, 150000); // (100+150+200)/3 = 150
+        assert!(metrics.p95_response_time_micros > 0);
+        assert!(metrics.p99_response_time_micros >= metrics.p95_response_time_micros);
     }
 
     #[test]
@@ -201,7 +220,7 @@ mod tests {
         // Time-weighted: 4 checks 1h apart, first 2 succeed
         // c0->c1: 1h up, c1->c2: 1h up, c2->c3: 1h down = 2h/3h = 66.67%
         assert!((metrics.uptime_percent - 66.67).abs() < 0.01);
-        assert!(metrics.avg_response_time_ms > 0.0);
+        assert!(metrics.avg_response_time_micros > 0);
     }
 
     #[test]
@@ -209,7 +228,7 @@ mod tests {
         let metrics = calculate_overall_metrics(&[]);
 
         assert_eq!(metrics.uptime_percent, 0.0);
-        assert_eq!(metrics.avg_response_time_ms, 0.0);
+        assert_eq!(metrics.avg_response_time_micros, 0);
     }
 
     #[test]
@@ -227,16 +246,16 @@ mod tests {
         let by_region = calculate_by_region_metrics(&results);
 
         assert_eq!(by_region.len(), 2);
-        assert_eq!(by_region[0].region, Region::Fsn1);
-        assert_eq!(by_region[1].region, Region::Hel1);
 
         // Check Fsn1 metrics
-        assert_eq!(by_region[0].metrics.uptime_percent, 100.0);
-        assert_eq!(by_region[0].metrics.avg_response_time_ms, 125.0); // (100+150)/2
+        let fsn1_metrics = by_region.get(&Region::Fsn1).unwrap();
+        assert_eq!(fsn1_metrics.uptime_percent, 100.0);
+        assert_eq!(fsn1_metrics.avg_response_time_micros, 125000); // (100+150)/2
 
         // Check Hel1 metrics
-        assert_eq!(by_region[1].metrics.uptime_percent, 100.0);
-        assert_eq!(by_region[1].metrics.avg_response_time_ms, 120.0); // (110+130)/2
+        let hel1_metrics = by_region.get(&Region::Hel1).unwrap();
+        assert_eq!(hel1_metrics.uptime_percent, 100.0);
+        assert_eq!(hel1_metrics.avg_response_time_micros, 120000); // (110+130)/2
     }
 
     #[test]
@@ -256,10 +275,10 @@ mod tests {
         let by_region = calculate_by_region_metrics(&results);
 
         assert_eq!(by_region.len(), 1);
-        assert_eq!(by_region[0].region, Region::Fsn1);
+        let fsn1_metrics = by_region.get(&Region::Fsn1).unwrap();
         // Time-weighted: 4 checks 1h apart, first 2 succeed = 2h/3h = 66.67%
-        assert!((by_region[0].metrics.uptime_percent - 66.67).abs() < 0.01);
-        assert!(by_region[0].metrics.avg_response_time_ms > 0.0);
+        assert!((fsn1_metrics.uptime_percent - 66.67).abs() < 0.01);
+        assert!(fsn1_metrics.avg_response_time_micros > 0);
     }
 
     #[test]
@@ -280,8 +299,8 @@ mod tests {
         let metrics = calculate_overall_metrics(&results);
 
         // With sorted [100, 200, 300, 400, 500] microseconds
-        assert_eq!(metrics.avg_response_time_ms, 300.0);
-        assert!(metrics.p95_response_time_ms >= metrics.avg_response_time_ms);
-        assert!(metrics.p99_response_time_ms >= metrics.p95_response_time_ms);
+        assert_eq!(metrics.avg_response_time_micros, 300000);
+        assert!(metrics.p95_response_time_micros >= metrics.avg_response_time_micros);
+        assert!(metrics.p99_response_time_micros >= metrics.p95_response_time_micros);
     }
 }
