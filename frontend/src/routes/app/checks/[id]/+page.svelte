@@ -62,7 +62,7 @@
         <CheckMetrics metrics={data.metrics} expectedRegions={data.check.regions} />
     {/if}
 
-    <MainGraph graphData={data.defaultGraph} />
+    <MainGraph checkId={data.check.check_id} defaultGraphData={data.defaultGraph} />
 </div>
 
 <CheckDialog bind:open={showEditDialog} check={data.check} />

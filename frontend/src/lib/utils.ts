@@ -43,24 +43,35 @@ export function getMinuteDateRange24Hours() {
     };
 }
 
+/**
+ * Calculates the time range for graph data based on granularity and number of days.
+ * All calculations are performed in UTC to ensure consistency across timezones.
+ *
+ * @param options - Configuration object
+ * @param options.granularity - Either 'Hourly' or 'Daily' granularity
+ * @param options.days - Number of days to look back from the 'to' date
+ * @returns Object containing ISO 8601 formatted 'from' and 'to' timestamps in UTC
+ */
 export function getGraphTimes(options: { granularity: GraphGranularity; days: number }) {
     const { granularity, days } = options;
     const now = new Date();
 
     let to: Date;
     if (granularity === 'Hourly') {
-        // Floor to the current hour and add 1 hour (future date)
+        // Floor to the current hour (UTC) and add 1 hour (future date)
         to = new Date(now);
-        to.setMinutes(0, 0, 0);
-        to.setHours(to.getHours() + 1);
+        to.setUTCMinutes(0, 0, 0);
+        to.setUTCHours(to.getUTCHours() + 1);
     } else {
-        // Daily: floor to the current day and add 1 day
+        // Daily: floor to the current day (UTC) and add 1 day
         to = new Date(now);
-        to.setHours(0, 0, 0, 0);
-        to.setDate(to.getDate() + 1);
+        to.setUTCHours(0, 0, 0, 0);
+        to.setUTCDate(to.getUTCDate() + 1);
     }
 
     const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+
+    console.log(granularity, from, to);
 
     return {
         from: from.toISOString(),
