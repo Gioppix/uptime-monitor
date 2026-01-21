@@ -142,3 +142,13 @@ cd frontend && npm install && npm run dev
 ## Notes
 
 If on macOS, enable Rosetta in Docker to speed up `amd64` builds.
+
+## Gallery
+
+![Dashboard](media/dash.png)
+
+![Response time graph](media/graph.png)
+
+![Multi-region nodes](media/nodes.png)
+
+![DNS configuration](media/dns.png)
