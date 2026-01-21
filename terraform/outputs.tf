@@ -5,7 +5,7 @@ output "nodes" {
       datacenter = server.datacenter
       public_ip  = server.ipv4_address
       private_ip = hcloud_server_network.node_network_attachment[key].ip
-      is_seed    = var.nodes[tonumber(key)].is_seed
+      is_seed    = var.nodes[key].is_seed
     }
   }
   description = "Information about all deployed nodes"

@@ -7,8 +7,8 @@ locals {
       api_subdomain = var.api_subdomain
       backend_port  = var.backend_port
       frontend_port = var.frontend_internal_port
-      region        = var.nodes[tonumber(idx)].region
-      is_primary    = var.nodes[tonumber(idx)].region == var.primary_region
+      node_key      = idx
+      is_primary    = node.region == var.primary_region
     })
   }
 }

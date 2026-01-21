@@ -11,16 +11,16 @@ locals {
   # Find the primary region server IP
   primary_ip = [
     for idx, server in hcloud_server.node :
-    server.ipv4_address if var.nodes[tonumber(idx)].region == var.primary_region
+    server.ipv4_address if var.nodes[idx].region == var.primary_region
   ][0]
 }
 
-# Per-region subdomains (e.g., fsn1.uptime.giovannifeltrin.com)
+# Per-node subdomains (e.g., nbg1-1.uptime.giovannifeltrin.com)
 resource "hcloud_zone_rrset" "uptime_region" {
   for_each = hcloud_server.node
 
   zone = hcloud_zone.main.name
-  name = "${var.nodes[tonumber(each.key)].region}.uptime"
+  name = "${each.key}.uptime"
   type = "A"
   ttl  = 300
   records = [
@@ -28,12 +28,12 @@ resource "hcloud_zone_rrset" "uptime_region" {
   ]
 }
 
-# Per-region API subdomains (e.g., api.fsn1.uptime.giovannifeltrin.com)
+# Per-node API subdomains (e.g., api.nbg1-1.uptime.giovannifeltrin.com)
 resource "hcloud_zone_rrset" "uptime_api_region" {
   for_each = hcloud_server.node
 
   zone = hcloud_zone.main.name
-  name = "api.${var.nodes[tonumber(each.key)].region}.uptime"
+  name = "api.${each.key}.uptime"
   type = "A"
   ttl  = 300
   records = [

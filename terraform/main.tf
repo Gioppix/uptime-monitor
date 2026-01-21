@@ -19,9 +19,9 @@ resource "hcloud_ssh_key" "default" {
 
 # Create nodes for database and backend services
 resource "hcloud_server" "node" {
-  for_each = { for idx, node in var.nodes : idx => node }
+  for_each = var.nodes
 
-  name        = "node-${each.value.datacenter}"
+  name        = "node-${each.key}"
   image       = "ubuntu-24.04"
   server_type = "cx23"
   datacenter  = each.value.datacenter

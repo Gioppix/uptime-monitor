@@ -37,7 +37,7 @@ locals {
   prometheus_scylla_config = yamlencode([
     for idx, node in var.nodes : {
       targets = [
-        hcloud_server_network.node_network_attachment[tostring(idx)].ip
+        hcloud_server_network.node_network_attachment[idx].ip
       ]
       labels = {
         cluster = "uptime-monitor"
@@ -49,7 +49,7 @@ locals {
   prometheus_node_exporter_config = yamlencode([
     for idx, node in var.nodes : {
       targets = [
-        hcloud_server_network.node_network_attachment[tostring(idx)].ip
+        hcloud_server_network.node_network_attachment[idx].ip
       ]
       labels = {
         cluster = "uptime-monitor"

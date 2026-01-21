@@ -26,13 +26,13 @@ locals {
         "http://www.${var.domain}",
         "http://${var.api_subdomain}.${var.domain}"
       ] : [],
-      # Regional subdomains (all regions)
+      # Node subdomains (all nodes)
       var.domain != "" ? flatten([
-        for region_idx, region_node in var.nodes : [
-          "https://${region_node.region}.${var.domain}",
-          "https://${var.api_subdomain}.${region_node.region}.${var.domain}",
-          "http://${region_node.region}.${var.domain}",
-          "http://${var.api_subdomain}.${region_node.region}.${var.domain}"
+        for node_key, node in var.nodes : [
+          "https://${node_key}.${var.domain}",
+          "https://${var.api_subdomain}.${node_key}.${var.domain}",
+          "http://${node_key}.${var.domain}",
+          "http://${var.api_subdomain}.${node_key}.${var.domain}"
         ]
       ]) : [],
       # IP-based origins (for direct access and development)

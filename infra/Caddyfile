@@ -3,8 +3,8 @@
     acme_ca https://acme-v02.api.letsencrypt.org/directory
 }
 
-# Regional frontend subdomain (e.g., fsn1.uptime.giovannifeltrin.com)
-${region}.${domain} {
+# Node frontend subdomain (e.g., nbg1-1.uptime.giovannifeltrin.com)
+${node_key}.${domain} {
     reverse_proxy localhost:${frontend_port}
 
     header {
@@ -15,8 +15,8 @@ ${region}.${domain} {
     }
 }
 
-# Regional API subdomain (e.g., api.fsn1.uptime.giovannifeltrin.com)
-${api_subdomain}.${region}.${domain} {
+# Node API subdomain (e.g., api.nbg1-1.uptime.giovannifeltrin.com)
+${api_subdomain}.${node_key}.${domain} {
     reverse_proxy localhost:${backend_port}
 
     header {

@@ -5,17 +5,17 @@ variable "hcloud_token" {
 
 # Define nodes to deploy across datacenters
 variable "nodes" {
-  description = "List of nodes to deploy with their regions, datacenters and seed status"
-  type = list(object({
+  description = "Map of nodes to deploy with their regions, datacenters and seed status"
+  type = map(object({
     region     = string
     datacenter = string
     is_seed    = bool
   }))
-  default = [
-    { region = "fsn1", datacenter = "fsn1-dc14", is_seed = true },
-    { region = "hel1", datacenter = "hel1-dc2", is_seed = true },
-    { region = "nbg1", datacenter = "nbg1-dc3", is_seed = false }
-  ]
+  default = {
+    "nbg1-1" = { region = "nbg1", datacenter = "nbg1-dc3", is_seed = true }
+    "hel1-1" = { region = "hel1", datacenter = "hel1-dc2", is_seed = true }
+    "nbg1-2" = { region = "nbg1", datacenter = "nbg1-dc3", is_seed = false }
+  }
 }
 
 # Control whether ScyllaDB is accessible via public IP

@@ -1,7 +1,7 @@
 # Local to get seed node IPs
 locals {
   seed_nodes = [
-    for idx, node in var.nodes : hcloud_server_network.node_network_attachment[tostring(idx)].ip
+    for idx, node in var.nodes : hcloud_server_network.node_network_attachment[idx].ip
     if node.is_seed
   ]
   seed_list = join(",", local.seed_nodes)
@@ -13,7 +13,7 @@ locals {
       scylla_ssl_port         = var.scylla_ssl_cql_port
       scylla_shard_aware_port = var.scylla_shard_aware_port
       scylla_shard_aware_ssl  = var.scylla_shard_aware_ssl_port
-      datacenter              = var.nodes[tonumber(idx)].datacenter
+      datacenter              = var.nodes[idx].datacenter
     })
   }
 
@@ -31,7 +31,7 @@ locals {
   # Render cassandra-rackdc.properties for each node
   rackdc_configs = {
     for idx, server in hcloud_server.node : idx => templatefile("${path.module}/../database/cassandra-rackdc.properties", {
-      datacenter = var.nodes[tonumber(idx)].datacenter
+      datacenter = var.nodes[idx].datacenter
     })
   }
 }
