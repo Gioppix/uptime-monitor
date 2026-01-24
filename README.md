@@ -35,6 +35,8 @@ Currently the DNS points to a single node. Adding a load balancer in front is tr
 
 **SSRF protection** - DNS resolved before requests, private IPs blocked. (`backend/src/worker/check/execute.rs`, currently disabled due to bugs)
 
+**Grafana Monitoring** - The ScyllaDB cluster is connected to a Grafana instance, deployed automatically with Terraform
+
 ## Service-Oriented Architecture
 
 ```
@@ -103,6 +105,8 @@ Currently the DNS points to a single node. Adding a load balancer in front is tr
 > **Note**: Falkenstein region was unavailable during development. Checks there will not execute.
 
 Create `terraform/prod.tfvars` with required variables (especially `hcloud_token` from Hetzner).
+
+Run Terraform: `terraform apply -var-file=prod.tfvars`. After this point you can already monitor the cluster, by visiting the monitor node's IP at the specified port (`8080` by default).
 
 Initialize database:
 
