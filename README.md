@@ -15,8 +15,8 @@ Credentials: `testtest`, `testtest`
 │   (Falkenstein)  │      │    (Helsinki)    │      │   (Nuremberg)    │
 ├──────────────────┤      ├──────────────────┤      ├──────────────────┤
 │  Caddy           │      │  Caddy           │      │  Caddy           │
-│  Backend API     │      │  Backend API     │      │  Backend API     │
-│  Worker          │◄────►│  Worker          │◄────►│  Worker          │
+│  Frontend        │      │  Frontend        │      │  Frontend        │
+│  Backend API     │◄────►│  Backend API     │◄────►│  Backend API     │
 │  ScyllaDB        │◄────►│  ScyllaDB        │◄────►│  ScyllaDB        │
 │  Prometheus      │      │  Prometheus      │      │  Prometheus      │
 └──────────────────┘      └──────────────────┘      └──────────────────┘
@@ -45,7 +45,7 @@ Currently the DNS points to a single node. Adding a load balancer in front is tr
 │  server/checks/       │  server/users/       │  server/auth.rs              │
 │  - GET /checks        │  - POST /register    │  - POST /login               │
 │  - POST /checks       │  - GET /me           │  - POST /logout              │
-│  - GET /checks/{id}   │  - PATCH /me         │  - Session management        │
+│  - GET /checks/{id}   │                      │  - Session management        │
 │  - DELETE /checks     │                      │                              │
 │  - GET /metrics       │                      │                              │
 │  (orchestrates data   │                      │                              │
